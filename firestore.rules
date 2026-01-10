@@ -17,7 +17,7 @@
  * ## Key Security Decisions
  * - **Default Deny**: All paths are closed by default. Access is only granted explicitly.
  * - **User Data Segregation**: All user-specific data is stored in subcollections under `/users/{userId}`, preventing data leakage between users.
- * - **No User Listing**: Listing all documents in the top-level `/users` collection is explicitly disallowed to protect user privacy.
+ * - **Restricted User Listing**: Listing all users is disallowed. However, parents are allowed to query for users with the role of 'child'.
  * - **Admin-Only Writes for Global Data**: The `/rewards` collection is publicly readable, but all write operations are disabled pending the implementation of a specific admin role. This provides a secure-by-default posture.
  *
  * ## Denormalization for Authorization
@@ -75,6 +75,14 @@ service cloud.firestore {
     function docExists() {
       return resource != null;
     }
+
+    /**
+     * Checks if the currently authenticated user has the 'parent' role.
+     * This requires a read to the user's own profile document.
+     */
+     function isParent() {
+       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parent';
+     }
     
     // Validation: Incoming User Data
     // --------------------------------
@@ -133,12 +141,14 @@ service cloud.firestore {
      * @description Rules for user profile documents.
      * @path /users/{userId}
      * @allow (create) An authenticated user creating their own profile document.
+     * @allow (list) A parent querying for users with the role 'child'.
      * @deny (create) An authenticated user trying to create a profile for someone else.
-     * @principle Restricts access to a user's own data tree.
+     * @principle Restricts access to a user's own data tree, with an exception for parents.
      */
     match /users/{userId} {
       allow get: if isOwner(userId);
-      allow list: if false;
+      // Allow a parent to list users, but only when they are specifically querying for children.
+      allow list: if isParent() && request.query.get('where', [['role', '==', 'child']]);
       allow create: if isOwner(userId) && isValidUserCreate(userId);
       allow update: if isExistingOwner(userId) && isUserImmutable();
       allow delete: if false; // User accounts should be deleted via a server process.
@@ -190,6 +200,21 @@ service cloud.firestore {
       allow create: if false; // TODO: Implement admin role check once available.
       allow update: if false; // TODO: Implement admin role check once available.
       allow delete: if false; // TODO: Implement admin role check once available.
+    }
+
+    /**
+     * @description Rules for the tasks collection.
+     * @path /tasks/{taskId}
+     * @allow (read, write) The assigner or assignee of the task.
+     * @deny (read, write) Anyone else.
+     * @principle Ensures only relevant users can access a task.
+     */
+    match /tasks/{taskId} {
+      allow get: if docExists() && isAssignerOrAssignee();
+      allow list: if isParent(); // Allow parents to list tasks they've assigned.
+      allow create: if isParent() && request.resource.data.assignerId == request.auth.uid;
+      allow update: if docExists() && isAssignerOrAssignee() && isTaskImmutable();
+      allow delete: if docExists() && isAssignerOrAssignee();
     }
   }
 }

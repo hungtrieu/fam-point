@@ -68,19 +68,19 @@ export default function ParentDashboard() {
     return query(collection(firestore, 'tasks'), where('assignerId', '==', user.uid));
   }, [firestore, user]);
 
-  const allUsersQuery = useMemoFirebase(() => {
+  const childrenQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return collection(firestore, 'users');
+    // Query for users who are children. This requires an index.
+    return query(collection(firestore, 'users'), where('role', '==', 'child'));
   }, [firestore]);
 
   const { data: tasks, isLoading: tasksLoading } = useCollection<Task>(allTasksQuery);
-  const { data: allUsers, isLoading: usersLoading } = useCollection<User>(allUsersQuery);
+  const { data: children, isLoading: usersLoading } = useCollection<User>(childrenQuery);
 
   const tasksToReview = tasks?.filter((task) => task.status === 'completed') || [];
-  const children = allUsers?.filter((u) => u.role === 'child') || [];
-
+  
   const getChildName = (userId: string) => {
-    return allUsers?.find((u) => u.id === userId)?.name || 'Không rõ';
+    return children?.find((u) => u.id === userId)?.name || 'Không rõ';
   };
   
   const handleCreateTask = () => {
@@ -202,7 +202,7 @@ export default function ParentDashboard() {
                           <SelectValue placeholder="Chọn một bé" />
                         </SelectTrigger>
                         <SelectContent>
-                          {children.map(child => (
+                          {(children || []).map(child => (
                              <SelectItem key={child.id} value={child.id}>{child.name}</SelectItem>
                           ))}
                         </SelectContent>
@@ -251,7 +251,7 @@ export default function ParentDashboard() {
                   <CardDescription>Xem nhanh tiến độ của các con.</CardDescription>
               </CardHeader>
                <CardContent>
-                  {children.map(child => {
+                  {(children || []).map(child => {
                       const childTasks = tasks?.filter(t => t.assigneeId === child.id) || [];
                       const completedTasks = childTasks.filter(t => t.status === 'approved').length;
                       const progress = childTasks.length > 0 ? (completedTasks / childTasks.length) * 100 : 0;
