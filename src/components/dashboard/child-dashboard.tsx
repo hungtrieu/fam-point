@@ -40,8 +40,6 @@ export default function ChildDashboard({
   tasks,
   rewards,
 }: ChildDashboardProps) {
-  const todoTasks = tasks.filter((task) => task.status === 'todo');
-
   const getRewardImage = (imageId: string) => {
     return PlaceHolderImages.find(p => p.id === imageId)?.imageUrl || "https://picsum.photos/seed/placeholder/600/400";
   }
@@ -134,7 +132,7 @@ export default function ChildDashboard({
               </div>
               <CardHeader>
                 <CardTitle className="text-base">{reward.name}</CardTitle>
-              </CardHeader>
+              </Header>
               <CardContent>
                 <p className="text-sm text-muted-foreground">{reward.description}</p>
               </CardContent>
