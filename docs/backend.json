@@ -22,6 +22,10 @@
         "role": {
           "type": "string",
           "description": "Role of the user (e.g., parent, child)."
+        },
+        "points": {
+          "type": "number",
+          "description": "Total points accumulated by the user."
         }
       },
       "required": [
@@ -43,11 +47,11 @@
         },
         "assignerId": {
           "type": "string",
-          "description": "Reference to User who assigned the task. (Relationship: User 1:N Task)"
+          "description": "Reference to User who assigned the task."
         },
         "assigneeId": {
           "type": "string",
-          "description": "Reference to User who is assigned the task. (Relationship: User 1:N Task)"
+          "description": "Reference to User who is assigned the task."
         },
         "title": {
           "type": "string",
@@ -64,9 +68,9 @@
         },
         "status": {
           "type": "string",
-          "description": "Status of the task (e.g., assigned, in progress, completed, approved)."
+          "description": "Status of the task (e.g., todo, completed, approved)."
         },
-        "rewardPoints": {
+        "points": {
           "type": "number",
           "description": "Number of points awarded for completing the task."
         }
@@ -79,7 +83,7 @@
         "description",
         "dueDate",
         "status",
-        "rewardPoints"
+        "points"
       ]
     },
     "Reward": {
@@ -192,13 +196,29 @@
           "schema": {
             "$ref": "#/backend/entities/Task"
           },
-          "description": "Stores tasks assigned to a specific user. Includes denormalized 'assignerId' and 'assigneeId' from the parent 'user' document, enabling rules to ensure only the assigned user or the assigner can access/modify the task.",
+          "description": "Stores tasks assigned to a specific user. The `assigneeId` in the task document MUST match the `{userId}` in the path.",
           "params": [
             {
               "name": "userId",
-              "description": "Unique identifier for the user to whom the task is assigned."
+              "description": "The user ID of the person to whom the task is assigned."
             },
             {
+              "name": "taskId",
+              "description": "Unique identifier for the task."
+            }
+          ]
+        }
+      },
+       {
+        "path": "/tasks/{taskId}",
+        "definition": {
+          "entityName": "Task",
+          "schema": {
+            "$ref": "#/backend/entities/Task"
+          },
+          "description": "This is a collection group query path. It represents queries made across all `tasks` subcollections (e.g., `/users/{userId}/tasks`). It is not a top-level collection. Access is granted based on the `assigneeId` or `assignerId` fields in the task document.",
+          "params": [
+             {
               "name": "taskId",
               "description": "Unique identifier for the task."
             }
@@ -212,7 +232,7 @@
           "schema": {
             "$ref": "#/backend/entities/Reward"
           },
-          "description": "Stores available rewards. Rewards are globally accessible, but creation/modification can be restricted to admin roles.",
+          "description": "Stores available rewards. Rewards are globally accessible for reads.",
           "params": [
             {
               "name": "rewardId",
@@ -228,7 +248,7 @@
           "schema": {
             "$ref": "#/backend/entities/Redemption"
           },
-          "description": "Stores redemption records for a specific user. User ID is part of the path, enforcing ownership.  Includes denormalized 'userId' from the parent 'user' document, enabling rules to ensure only the owning user can access/modify the redemption.",
+          "description": "Stores redemption records for a specific user.",
           "params": [
             {
               "name": "userId",
@@ -242,6 +262,7 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to support the 'Gia Đình Gắn Kết' application, focusing on task assignment, completion tracking, and reward redemption within families. The design emphasizes authorization independence, security, and scalability. Path-based ownership is used for user-related data (tasks and redemptions). \n\nAuthorization Independence is achieved through denormalization where needed. For example, task documents are stored as subcollections of User documents.\n\nThe structure supports the required QAPs (Queries are not Filters) by ensuring that listing operations can be performed securely without requiring filtering based on data within the documents themselves. Data segregation is used to separate user data. The use of path-based ownership for tasks and redemptions ensures that only authorized users can access this data."
+    "reasoning": "The Firestore structure is refactored to nest `tasks` as a subcollection under the `users` document of the assignee. This enforces a clear ownership model where a user's tasks are located at `/users/{userId}/tasks/{taskId}`. This change simplifies security rules significantly by removing the need for `get()` calls to check roles, resolving persistent permission errors. Rules for tasks now check ownership via the path for the assignee and via a denormalized `assignerId` field for the assigner, which is more performant and secure. Collection group queries on `/tasks` are allowed for parents to view all tasks they've assigned."
   }
 }
+    

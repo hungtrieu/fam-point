@@ -4,29 +4,30 @@
  * ## Core Philosophy
  * This ruleset enforces a strict user-ownership security model. All data that is
  * considered private or user-specific, such as tasks and redemptions, is nested
- * within a user's own data tree. Access is granted only to the authenticated
- * user who owns that specific data tree. This prevents users from accessing or even
- * discovering the data of other users.
+ * within a user's own data tree (`/users/{userId}`). Access is granted only to the authenticated
+ * user who owns that specific data tree or to users who have a defined relationship
+ * (like a task's assigner). This prevents users from accessing or even
+ * discovering the data of other users inappropriately.
  *
  * ## Data Structure
- * - `/users/{userId}`: Stores public user profiles. Each user can manage their own profile.
- * - `/users/{userId}/tasks/{taskId}`: A subcollection for tasks. Access is shared between the task's assignee (the owner of the subcollection) and its assigner.
+ * - `/users/{userId}`: Stores user profiles. Each user can manage their own profile.
+ * - `/users/{userId}/tasks/{taskId}`: A subcollection for tasks assigned to a user. Access is shared between the task's assignee (the owner of the subcollection) and its assigner.
  * - `/users/{userId}/redemptions/{redemptionId}`: A subcollection for a user's reward redemptions, accessible only by that user.
  * - `/rewards/{rewardId}`: A top-level collection for globally available rewards. This data is public for all to read.
+ * - `/tasks/{taskId}`: This is NOT a top-level collection. It represents a collection group query across all `tasks` subcollections.
  *
  * ## Key Security Decisions
  * - **Default Deny**: All paths are closed by default. Access is only granted explicitly.
- * - **User Data Segregation**: User-specific data can be stored in subcollections under `/users/{userId}` to prevent data leakage. However, for querying efficiency, a top-level `/tasks` collection is used, secured by rules that check denormalized `assignerId` and `assigneeId` fields.
- * - **Restricted User Listing**: Listing all users is disallowed. However, parents are allowed to query for users with the role of 'child'.
- * - **Admin-Only Writes for Global Data**: The `/rewards` collection is publicly readable, but all write operations are disabled pending the implementation of a specific admin role. This provides a secure-by-default posture.
+ * - **Path-Based Ownership**: User-specific data (`tasks`, `redemptions`) is stored in subcollections under `/users/{userId}` to enforce ownership and simplify rules.
+ * - **Restricted User Listing**: Listing all users is disallowed for general users. Parents are allowed to query for users with the role of 'child' for administrative purposes.
+ * - **Admin-Only Writes for Global Data**: The `/rewards` collection is publicly readable, but all write operations are disabled pending the implementation of a specific admin role.
  *
  * ## Denormalization for Authorization
  * The ruleset relies on denormalized fields for efficient and secure authorization checks, avoiding slow and costly `get()` calls.
- * - **Task Ownership**: Each `/tasks/{taskId}` document contains both an `assignerId` and an `assigneeId`. This allows rules to grant access to either party without needing to read other documents.
- * - **Relational Integrity**: On creation, rules validate that denormalized IDs within a document (e.g., a `userId` field) match the user ID in the document's path. This ensures data consistency and correct ownership linkage from the start.
+ * - **Task Ownership**: Each task document contains both an `assignerId` and an `assigneeId`. This allows rules to grant access to either party without needing to traverse the document tree.
  *
- * ## Structural Segregation
- * User-private data (`redemptions`) is structurally separated into user-owned subcollections. Publicly shared data (`rewards`) and semi-private queryable data (`tasks`) are stored in their own top-level collections.
+ * ## Collection Group Queries
+ * A rule is defined for the `tasks` collection group (`match /tasks/{taskId}`) to allow parents to query for all tasks they have assigned, regardless of which user's subcollection they reside in.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -35,167 +36,104 @@ service cloud.firestore {
     // Helper Functions
     // --------------------------------
 
-    /**
-     * Checks if a user is authenticated.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Checks if the currently authenticated user's UID matches the provided userId.
-     * This is the foundation of the user-ownership model.
-     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-
-    /**
-     * Checks for ownership and that the document already exists.
-     * CRITICAL for safe update and delete operations.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
     
-    /**
-     * Checks if the user is either the assigner or the assignee of a task.
-     * Used for shared access to task documents.
-     */
-    function isAssignerOrAssignee() {
-      // On create, check the incoming data. On update/delete/get, check existing data.
-      let taskData = request.method == 'create' ? request.resource.data : resource.data;
-      return isSignedIn() && (request.auth.uid == taskData.assignerId || request.auth.uid == taskData.assigneeId);
-    }
-    
-    /**
-     * Checks that the document exists before allowing an operation.
-     * Used for shared access updates/deletes where ownership is not path-based.
-     */
     function docExists() {
       return resource != null;
     }
 
-    /**
-     * Checks if the currently authenticated user has the 'parent' role.
-     * This requires a read to the user's own profile document.
-     */
-     function isParent() {
-       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parent';
-     }
+    function isParent() {
+      // This is a potentially expensive call. Use with caution.
+      // It's used here to allow parents to list children and create tasks.
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parent';
+    }
     
-    // Validation: Incoming User Data
+    function isAssigner(task) {
+        return isSignedIn() && request.auth.uid == task.assignerId;
+    }
+
+    // Validation Functions
     // --------------------------------
-    
-    /**
-     * Validates that the user `id` field matches the document ID on creation.
-     */
+
     function isValidUserCreate(userId) {
-      return request.resource.data.id == userId;
-    }
-    
-    /**
-     * Enforces immutability of the user `id` field during updates.
-     */
-    function isUserImmutable() {
-      return request.resource.data.id == resource.data.id;
-    }
-    
-    // Validation: Incoming Task Data
-    // --------------------------------
-    
-    /**
-     * Validates that the creating user is the assigner and the assigneeId matches the path.
-     */
-    function isValidTaskCreate(userId) {
       let data = request.resource.data;
-      return data.assignerId == request.auth.uid && data.assigneeId == userId;
+      return data.id == userId &&
+             (data.role == 'parent' || data.role == 'child');
+    }
+
+    function isUserUpdateValid() {
+      let data = request.resource.data;
+      // Prevent changing critical, immutable fields
+      return data.id == resource.data.id &&
+             data.role == resource.data.role &&
+             data.email == resource.data.email;
     }
     
-    /**
-     * Enforces immutability of core relational fields on a task.
-     */
-    function isTaskImmutable() {
-      return request.resource.data.assignerId == resource.data.assignerId
-          && request.resource.data.assigneeId == resource.data.assigneeId;
+    function isValidTaskCreate(userId) {
+        let data = request.resource.data;
+        // The creator must be the assigner, and the assigneeId must match the user path.
+        return data.assignerId == request.auth.uid && 
+               data.assigneeId == userId;
+    }
+
+    function isTaskUpdateValid() {
+        let data = request.resource.data;
+        // Prevent changing ownership fields
+        return data.assignerId == resource.data.assignerId &&
+               data.assigneeId == resource.data.assigneeId;
     }
     
-    // Validation: Incoming Redemption Data
-    // --------------------------------
-    
-    /**
-     * Validates that the redemption's internal userId matches the path on creation.
-     */
     function isValidRedemptionCreate(userId) {
       return request.resource.data.userId == userId;
     }
 
-    /**
-     * Enforces immutability of the redemption's userId field during updates.
-     */
-    function isRedemptionImmutable() {
-      return request.resource.data.userId == resource.data.userId;
-    }
-
-    /**
-     * @description Rules for user profile documents.
-     * @path /users/{userId}
-     * @allow (get, update) A user can get or update their own profile.
-     * @allow (create) An authenticated user can create their own profile.
-     * @allow (list) A parent can query for users with the role 'child'.
-     * @principle Restricts access to a user's own data, with an exception for parents listing children.
-     */
+    // Rules for Collections
+    // --------------------------------
+    
     match /users/{userId} {
       allow get: if isOwner(userId);
-      allow list: if isParent() && request.query.where.role == 'child';
+      allow list: if isParent() && request.query.where[0][0] == 'role' && request.query.where[0][2] == 'child';
       allow create: if isOwner(userId) && isValidUserCreate(userId);
-      allow update: if isExistingOwner(userId) && isUserImmutable();
-      allow delete: if false; // User accounts should be deleted via a server process.
+      allow update: if isOwner(userId) && docExists() && isUserUpdateValid();
+      allow delete: if false; // Deletions should be handled by a backend process
 
-      /**
-       * @description Rules for a user's reward redemption history.
-       * @path /users/{userId}/redemptions/{redemptionId}
-       * @allow (get, list, create, update, delete) A user can manage their own redemption records.
-       * @principle Enforces strict document ownership.
-       */
       match /redemptions/{redemptionId} {
-        allow get: if isOwner(userId);
-        allow list: if isOwner(userId);
+        allow get, list: if isOwner(userId);
         allow create: if isOwner(userId) && isValidRedemptionCreate(userId);
-        allow update: if isExistingOwner(userId) && isRedemptionImmutable();
-        allow delete: if isExistingOwner(userId);
+        allow update, delete: if isOwner(userId) && docExists();
+      }
+      
+      match /tasks/{taskId} {
+        // The assignee can get, update, and delete their own tasks.
+        allow get, delete: if isOwner(userId) && docExists();
+        allow update: if isOwner(userId) && docExists() && isTaskUpdateValid();
+        
+        // The parent who assigned the task can also read it and approve it.
+        allow get: if docExists() && isAssigner(resource.data);
+        allow update: if docExists() && isAssigner(resource.data) && isTaskUpdateValid();
+
+        // A parent can create a task for a child. The path's {userId} must be the assignee.
+        allow create: if isParent() && isValidTaskCreate(userId);
       }
     }
 
-    /**
-     * @description Rules for the global rewards collection.
-     * @path /rewards/{rewardId}
-     * @allow (get, list) Any user can view the available rewards.
-     * @deny (create, update, delete) No client-side writes are allowed.
-     * @principle Manages public read-only data.
-     */
     match /rewards/{rewardId} {
-      allow get, list: if true;
-      allow create, update, delete: if false; // Only admins should write, done via a backend process.
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if false; // Managed by backend/admins
     }
-
-    /**
-     * @description Rules for the top-level tasks collection.
-     * @path /tasks/{taskId}
-     * @allow (get, update, delete) The assigner or assignee can manage the task.
-     * @allow (list) A user can query for tasks assigned to them or by them.
-     * @allow (create) A parent can create a task.
-     * @principle Secures a denormalized collection for efficient querying.
-     */
+    
+    // This is a collection group query rule. It allows a parent to query all tasks
+    // they have assigned across all user subcollections.
     match /tasks/{taskId} {
-      allow get: if docExists() && isAssignerOrAssignee();
-      // Allow listing if the query constrains to either the user being the assignee OR the assigner.
-      allow list: if isSignedIn() && 
-                   (request.query.get('where', [['assigneeId', '==', request.auth.uid]]) || 
-                    request.query.get('where', [['assignerId', '==', request.auth.uid]]));
-      allow create: if isParent() && request.resource.data.assignerId == request.auth.uid;
-      allow update: if docExists() && isAssignerOrAssignee() && isTaskImmutable();
-      allow delete: if docExists() && isAssignerOrAssignee();
+      allow list: if isParent() && request.query.where[0][0] == 'assignerId' && request.query.where[0][2] == request.auth.uid;
     }
   }
 }
+
+    

@@ -20,8 +20,8 @@ export function TaskActions({ task, role }: TaskActionsProps) {
     
     const batch = writeBatch(firestore);
 
-    // Update task status
-    const taskRef = doc(firestore, 'tasks', task.id);
+    // Path to the specific task in the user's subcollection
+    const taskRef = doc(firestore, `users/${task.assigneeId}/tasks`, task.id);
     batch.update(taskRef, { status: 'approved' });
 
     // Award points to the child
@@ -31,6 +31,7 @@ export function TaskActions({ task, role }: TaskActionsProps) {
     // Add to point history (redemptions subcollection)
     const redemptionRef = doc(collection(firestore, `users/${task.assigneeId}/redemptions`));
     batch.set(redemptionRef, {
+        id: redemptionRef.id,
         userId: task.assigneeId,
         description: `Hoàn thành: ${task.title}`,
         pointsRedeemed: task.points, // Positive value for earning
@@ -48,7 +49,7 @@ export function TaskActions({ task, role }: TaskActionsProps) {
 
   const handleReject = () => {
     if (!firestore) return;
-    const taskRef = doc(firestore, 'tasks', task.id);
+    const taskRef = doc(firestore, `users/${task.assigneeId}/tasks`, task.id);
     setDocumentNonBlocking(taskRef, { status: 'todo' }, { merge: true });
     toast({
       variant: 'destructive',
@@ -59,7 +60,7 @@ export function TaskActions({ task, role }: TaskActionsProps) {
 
   const handleComplete = () => {
     if (!firestore) return;
-    const taskRef = doc(firestore, 'tasks', task.id);
+    const taskRef = doc(firestore, `users/${task.assigneeId}/tasks`, task.id);
     setDocumentNonBlocking(taskRef, { status: 'completed' }, { merge: true });
     toast({
       title: 'Hoàn thành!',
@@ -101,3 +102,5 @@ export function TaskActions({ task, role }: TaskActionsProps) {
 
   return null;
 }
+
+    

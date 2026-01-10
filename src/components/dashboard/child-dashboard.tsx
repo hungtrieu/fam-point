@@ -23,7 +23,7 @@ import { TaskActions } from './task-actions';
 import { Star, Gift, ClipboardCheck } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useCollection, useDoc, useFirebase, useUser, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, doc, Timestamp, increment } from 'firebase/firestore';
+import { collection, query, where, doc, Timestamp, increment, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 const statusMap: { [key in Task['status']]: { text: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' } } = {
@@ -44,7 +44,8 @@ export default function ChildDashboard() {
 
   const childTasksQuery = useMemoFirebase(() => {
     if (!firestore || !authUser) return null;
-    return query(collection(firestore, 'tasks'), where('assigneeId', '==', authUser.uid));
+    // Query the subcollection for the logged-in user
+    return collection(firestore, `users/${authUser.uid}/tasks`);
   }, [firestore, authUser]);
 
   const rewardsQuery = useMemoFirebase(() => {
@@ -63,27 +64,32 @@ export default function ChildDashboard() {
   const handleRedeem = (reward: Reward) => {
     if (!firestore || !user || !authUser) return;
 
-    if (user.points! < reward.costInPoints) {
+    if ((user.points || 0) < reward.costInPoints) {
         toast({ title: "Không đủ điểm", description: "Con chưa đủ điểm để đổi phần thưởng này.", variant: "destructive" });
         return;
     }
+    
+    const batch = writeBatch(firestore);
 
     const userRef = doc(firestore, 'users', authUser.uid);
+    batch.update(userRef, { points: increment(-reward.costInPoints) });
+    
     const redemptionRef = doc(collection(firestore, `users/${authUser.uid}/redemptions`));
+    batch.set(redemptionRef, {
+      id: redemptionRef.id,
+      userId: authUser.uid,
+      rewardId: reward.id,
+      description: `Đổi phần thưởng: ${reward.name}`,
+      pointsRedeemed: -reward.costInPoints,
+      redemptionDate: Timestamp.now(),
+    });
 
-    // Deduct points
-    setDocumentNonBlocking(userRef, { points: increment(-reward.costInPoints) }, { merge: true });
-
-    // Create redemption record
-    setDocumentNonBlocking(redemptionRef, {
-        userId: authUser.uid,
-        rewardId: reward.id,
-        description: `Đổi phần thưởng: ${reward.name}`,
-        pointsRedeemed: -reward.costInPoints,
-        redemptionDate: Timestamp.now(),
-    }, {});
-
-    toast({ title: "Đổi quà thành công!", description: `Con đã đổi "${reward.name}".` });
+    batch.commit().then(() => {
+        toast({ title: "Đổi quà thành công!", description: `Con đã đổi "${reward.name}".` });
+    }).catch(e => {
+        console.error("Redemption failed", e);
+        toast({ title: "Lỗi đổi quà", description: "Đã có lỗi xảy ra, vui lòng thử lại.", variant: "destructive" });
+    });
   }
 
   const isLoading = isUserLoading || userLoading || tasksLoading || rewardsLoading;
@@ -146,8 +152,8 @@ export default function ChildDashboard() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={statusMap[task.status].variant}>
-                        {statusMap[task.status].text}
+                       <Badge variant={statusMap[task.status] ? statusMap[task.status].variant : 'default'}>
+                        {statusMap[task.status] ? statusMap[task.status].text : 'Không rõ'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -201,3 +207,4 @@ export default function ChildDashboard() {
     </div>
   );
 }
+    

@@ -43,7 +43,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { useCollection, useFirebase, useUser, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, Timestamp, doc } from 'firebase/firestore';
+import { collection, query, where, Timestamp, doc, collectionGroup } from 'firebase/firestore';
 import { useState } from 'react';
 
 const statusMap: { [key in Task['status']]: { text: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' } } = {
@@ -65,7 +65,8 @@ export default function ParentDashboard() {
 
   const allTasksQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return query(collection(firestore, 'tasks'), where('assignerId', '==', user.uid));
+    // Use a collection group query to get all tasks assigned by this parent
+    return query(collectionGroup(firestore, 'tasks'), where('assignerId', '==', user.uid));
   }, [firestore, user]);
 
   const childrenQuery = useMemoFirebase(() => {
@@ -86,7 +87,8 @@ export default function ParentDashboard() {
     if (!firestore || !user || !taskAssignee || !taskTitle || taskPoints <= 0) return;
     setIsCreating(true);
 
-    const tasksCollection = collection(firestore, 'tasks');
+    // Path to the subcollection of the specific child
+    const tasksCollection = collection(firestore, `users/${taskAssignee}/tasks`);
     const newDocRef = doc(tasksCollection);
 
     addDocumentNonBlocking(tasksCollection, {
@@ -230,8 +232,8 @@ export default function ParentDashboard() {
                       <TableCell className="font-medium">{task.title}</TableCell>
                       <TableCell>{getChildName(task.assigneeId)}</TableCell>
                       <TableCell>
-                        <Badge variant={statusMap[task.status].variant}>
-                          {statusMap[task.status].text}
+                        <Badge variant={statusMap[task.status] ? statusMap[task.status].variant : 'default'}>
+                          {statusMap[task.status] ? statusMap[task.status].text : 'Không rõ'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">{task.points}</TableCell>
@@ -273,3 +275,4 @@ export default function ParentDashboard() {
     </div>
   );
 }
+    
