@@ -48,8 +48,8 @@ export default function ChildDashboard({
 
   return (
     <div className="grid auto-rows-max items-start gap-4 md:gap-8 lg:grid-cols-2">
-      <div className="grid gap-4">
-        <Card className="sm:col-span-2">
+      <div className="grid gap-4 auto-rows-max">
+        <Card>
           <CardHeader className="pb-3">
             <div className="flex flex-row items-center justify-between">
               <div>
