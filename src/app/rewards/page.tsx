@@ -12,15 +12,15 @@ import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { Star, Gift } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { useCollection, useDoc, useFirebase, useUser, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, doc, Timestamp, increment } from 'firebase/firestore';
+import { useCollection, useDoc, useFirebase, useUser, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
+import { collection, query, doc, Timestamp, increment, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function RewardsPage({
   searchParams,
 }: {
-  searchParams: { role?: 'parent' | 'child' };
+  searchParams: { [key: string]: string | string[] | undefined };
 }) {
   const role = searchParams?.role || 'child';
   const { firestore } = useFirebase();
@@ -54,22 +54,28 @@ export default function RewardsPage({
         return;
     }
 
+    const batch = writeBatch(firestore);
+    
+    // Deduct points from user
     const userRef = doc(firestore, 'users', authUser.uid);
-    const redemptionRef = doc(collection(firestore, `users/${authUser.uid}/redemptions`));
-
-    // Deduct points
-    setDocumentNonBlocking(userRef, { points: increment(-reward.costInPoints) }, { merge: true });
+    batch.update(userRef, { points: increment(-reward.costInPoints) });
 
     // Create redemption record
-    addDocumentNonBlocking(redemptionRef, {
+    const redemptionRef = doc(collection(firestore, `users/${authUser.uid}/redemptions`));
+    batch.set(redemptionRef, {
         userId: authUser.uid,
         rewardId: reward.id,
         description: `Đổi phần thưởng: ${reward.name}`,
         pointsRedeemed: -reward.costInPoints,
         redemptionDate: Timestamp.now(),
     });
-
-    toast({ title: "Đổi quà thành công!", description: `Con đã đổi "${reward.name}".` });
+    
+    batch.commit().then(() => {
+      toast({ title: "Đổi quà thành công!", description: `Con đã đổi "${reward.name}".` });
+    }).catch(e => {
+        console.error(e);
+        toast({ title: 'Lỗi!', description: 'Không thể đổi quà.', variant: 'destructive'});
+    });
   }
 
   const isLoading = isUserLoading || userLoading || rewardsLoading;

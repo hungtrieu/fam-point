@@ -26,7 +26,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function HistoryPage({
   searchParams,
 }: {
-  searchParams: { role?: 'parent' | 'child' };
+  searchParams: { [key: string]: string | string[] | undefined };
 }) {
   const role = searchParams?.role || 'child';
   const { firestore } = useFirebase();

@@ -7,9 +7,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function DashboardPage({
   searchParams,
 }: {
-  searchParams: { role?: 'parent' | 'child'; user?: string };
+  searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  const role = searchParams.role || 'child';
+  const role = searchParams?.role || 'child';
   const { user, isUserLoading } = useUser();
 
   if (isUserLoading) {
