@@ -31,7 +31,7 @@ export default function HistoryPage() {
   const { user: authUser, isUserLoading } = useUser();
 
   const historyQuery = useMemoFirebase(() => {
-    if (!firestore || !authUser) return null;
+    if (!firestore || !authUser?.uid) return null;
     // Note: This query requires a composite index in Firestore.
     // The error message in the browser console will provide a link to create it.
     return query(

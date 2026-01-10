@@ -30,7 +30,7 @@ export function UserNav({ role }: UserNavProps) {
   const { user: authUser, isUserLoading } = useUser();
   
   const userDocRef = useMemoFirebase(() => {
-    if (!firestore || !authUser) return null;
+    if (!firestore || !authUser?.uid) return null;
     return doc(firestore, 'users', authUser.uid);
   }, [firestore, authUser]);
 

@@ -39,12 +39,12 @@ export default function ChildDashboard() {
   const { toast } = useToast();
 
   const userDocRef = useMemoFirebase(() => {
-    if (!firestore || !authUser) return null;
+    if (!firestore || !authUser?.uid) return null;
     return doc(firestore, 'users', authUser.uid);
   }, [firestore, authUser]);
 
   const childTasksQuery = useMemoFirebase(() => {
-    if (!firestore || !authUser) return null;
+    if (!firestore || !authUser?.uid) return null;
     // Query the subcollection for the logged-in user
     return collection(firestore, `users/${authUser.uid}/tasks`);
   }, [firestore, authUser]);
@@ -63,7 +63,7 @@ export default function ChildDashboard() {
   }
 
   const handleRedeem = (reward: Reward) => {
-    if (!firestore || !user || !authUser) return;
+    if (!firestore || !user || !authUser?.uid) return;
 
     if ((user.points || 0) < reward.costInPoints) {
         toast({ title: "Không đủ điểm", description: "Con chưa đủ điểm để đổi phần thưởng này.", variant: "destructive" });
@@ -225,5 +225,3 @@ export default function ChildDashboard() {
     </div>
   );
 }
-
-    

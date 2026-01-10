@@ -65,13 +65,13 @@ export default function ParentDashboard() {
 
 
   const allTasksQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user?.uid) return null;
     // Use a collection group query to get all tasks assigned by this parent
     return query(collectionGroup(firestore, 'tasks'), where('assignerId', '==', user.uid));
   }, [firestore, user]);
 
   const childrenQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user?.uid) return null;
     return query(collection(firestore, 'users'), where('role', '==', 'child'));
   }, [firestore, user]);
 
@@ -85,7 +85,7 @@ export default function ParentDashboard() {
   };
   
   const handleCreateTask = () => {
-    if (!firestore || !user || !taskAssignee || !taskTitle || taskPoints <= 0) return;
+    if (!firestore || !user?.uid || !taskAssignee || !taskTitle || taskPoints <= 0) return;
     setIsCreating(true);
 
     // Path to the subcollection of the specific child
@@ -291,5 +291,3 @@ export default function ParentDashboard() {
     </div>
   );
 }
-
-    
