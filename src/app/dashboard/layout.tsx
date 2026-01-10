@@ -36,14 +36,14 @@ export default function DashboardLayout({
             <SidebarNav role={role as 'parent' | 'child'} />
           </SidebarContent>
         </Sidebar>
-        <SidebarInset>
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+        <SidebarInset className="flex flex-col">
+          <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:px-6">
             <SidebarTrigger className="sm:hidden" />
             <div className="ml-auto">
               <UserNav role={role as 'parent' | 'child'} />
             </div>
           </header>
-          <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
+          <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-6 md:gap-8">
             {children}
           </main>
         </SidebarInset>
