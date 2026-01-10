@@ -3,13 +3,11 @@ import ParentDashboard from '@/components/dashboard/parent-dashboard';
 import ChildDashboard from '@/components/dashboard/child-dashboard';
 import { useUser } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSearchParams } from 'next/navigation';
 
-export default function DashboardPage({
-  searchParams,
-}: {
-  searchParams: { role?: 'parent' | 'child' };
-}) {
-  const role = searchParams.role || 'child';
+export default function DashboardPage() {
+  const searchParams = useSearchParams();
+  const role = searchParams.get('role') || 'child';
   const { user, isUserLoading } = useUser();
 
   if (isUserLoading) {

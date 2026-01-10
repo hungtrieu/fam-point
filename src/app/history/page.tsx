@@ -22,13 +22,11 @@ import { vi } from 'date-fns/locale';
 import { useCollection, useFirebase, useUser, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSearchParams } from 'next/navigation';
 
-export default function HistoryPage({
-  searchParams,
-}: {
-  searchParams: { [key: string]: string | string[] | undefined };
-}) {
-  const role = searchParams?.role || 'child';
+export default function HistoryPage() {
+  const searchParams = useSearchParams();
+  const role = searchParams.get('role') || 'child';
   const { firestore } = useFirebase();
   const { user: authUser, isUserLoading } = useUser();
 

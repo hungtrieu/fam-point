@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { Home } from 'lucide-react';
-
 import { Button } from '@/components/ui/button';
 import { UserNav } from '@/components/user-nav';
 import { HeaderNav } from '@/components/header-nav';
@@ -11,15 +10,15 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Menu } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 
 export default function HistoryLayout({
   children,
-  searchParams,
 }: {
   children: React.ReactNode;
-  searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  const role = searchParams?.role || 'child';
+  const searchParams = useSearchParams();
+  const role = searchParams.get('role') || 'child';
 
   return (
     <div className="flex min-h-screen w-full flex-col">

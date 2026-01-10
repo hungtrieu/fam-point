@@ -12,17 +12,15 @@ import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { Star, Gift } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { useCollection, useDoc, useFirebase, useUser, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
+import { useCollection, useDoc, useFirebase, useUser, useMemoFirebase } from '@/firebase';
 import { collection, query, doc, Timestamp, increment, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSearchParams } from 'next/navigation';
 
-export default function RewardsPage({
-  searchParams,
-}: {
-  searchParams: { [key: string]: string | string[] | undefined };
-}) {
-  const role = searchParams?.role || 'child';
+export default function RewardsPage() {
+  const searchParams = useSearchParams();
+  const role = searchParams.get('role') || 'child';
   const { firestore } = useFirebase();
   const { user: authUser, isUserLoading } = useUser();
   const { toast } = useToast();
@@ -63,6 +61,7 @@ export default function RewardsPage({
     // Create redemption record
     const redemptionRef = doc(collection(firestore, `users/${authUser.uid}/redemptions`));
     batch.set(redemptionRef, {
+        id: redemptionRef.id,
         userId: authUser.uid,
         rewardId: reward.id,
         description: `Đổi phần thưởng: ${reward.name}`,
