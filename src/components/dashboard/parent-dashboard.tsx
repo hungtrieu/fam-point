@@ -41,12 +41,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
-
-interface ParentDashboardProps {
-  user: User;
-  tasks: Task[];
-  allUsers: User[];
-}
+import { useCollection, useFirebase, useUser, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, Timestamp } from 'firebase/firestore';
+import { useState } from 'react';
 
 const statusMap: { [key in Task['status']]: { text: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' } } = {
   todo: { text: 'Cần làm', variant: 'default' },
@@ -54,17 +51,63 @@ const statusMap: { [key in Task['status']]: { text: string; variant: 'default' |
   approved: { text: 'Đã duyệt', variant: 'outline' },
 };
 
-export default function ParentDashboard({
-  user,
-  tasks,
-  allUsers,
-}: ParentDashboardProps) {
-  const tasksToReview = tasks.filter((task) => task.status === 'completed');
-  const children = allUsers.filter((u) => u.role === 'child');
+export default function ParentDashboard() {
+  const { firestore } = useFirebase();
+  const { user } = useUser();
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDesc, setTaskDesc] = useState('');
+  const [taskPoints, setTaskPoints] = useState(0);
+  const [taskAssignee, setTaskAssignee] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+
+
+  const allTasksQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'tasks');
+  }, [firestore]);
+
+  const allUsersQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'users');
+  }, [firestore]);
+
+  const { data: tasks, isLoading: tasksLoading } = useCollection<Task>(allTasksQuery);
+  const { data: allUsers, isLoading: usersLoading } = useCollection<User>(allUsersQuery);
+
+  const tasksToReview = tasks?.filter((task) => task.status === 'completed') || [];
+  const children = allUsers?.filter((u) => u.role === 'child') || [];
 
   const getChildName = (userId: string) => {
-    return allUsers.find((u) => u.id === userId)?.name || 'Không rõ';
+    return allUsers?.find((u) => u.id === userId)?.name || 'Không rõ';
   };
+  
+  const handleCreateTask = () => {
+    if (!firestore || !user || !taskAssignee || !taskTitle || taskPoints <= 0) return;
+    setIsCreating(true);
+
+    const tasksCollection = collection(firestore, 'tasks');
+    addDocumentNonBlocking(tasksCollection, {
+      title: taskTitle,
+      description: taskDesc,
+      points: taskPoints,
+      assigneeId: taskAssignee,
+      assignerId: user.uid,
+      status: 'todo',
+      createdAt: Timestamp.now(),
+      dueDate: Timestamp.now(), // Placeholder, you might want a date picker
+    }).finally(() => {
+        setIsCreating(false);
+        // Close dialog logic here
+        setTaskTitle('');
+        setTaskDesc('');
+        setTaskPoints(0);
+        setTaskAssignee('');
+    });
+  }
+
+  if (tasksLoading || usersLoading) {
+    return <div>Đang tải...</div>;
+  }
 
   return (
     <div className="container mx-auto p-0">
@@ -97,7 +140,7 @@ export default function ParentDashboard({
                           <div className="font-medium">{task.title}</div>
                           <div className="text-sm text-muted-foreground">+{task.points} điểm</div>
                         </TableCell>
-                         <TableCell>{getChildName(task.assignedTo)}</TableCell>
+                         <TableCell>{getChildName(task.assigneeId)}</TableCell>
                         <TableCell className="text-right">
                           <TaskActions task={task} role="parent" />
                         </TableCell>
@@ -137,19 +180,19 @@ export default function ParentDashboard({
                   <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
                       <Label htmlFor="task-title">Tên công việc</Label>
-                      <Input id="task-title" placeholder="Ví dụ: Dọn dẹp phòng" />
+                      <Input id="task-title" placeholder="Ví dụ: Dọn dẹp phòng" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} />
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="task-desc">Mô tả</Label>
-                      <Textarea id="task-desc" placeholder="Mô tả chi tiết công việc..." />
+                      <Textarea id="task-desc" placeholder="Mô tả chi tiết công việc..." value={taskDesc} onChange={(e) => setTaskDesc(e.target.value)} />
                     </div>
                      <div className="grid gap-2">
                       <Label htmlFor="task-points">Điểm thưởng</Label>
-                      <Input id="task-points" type="number" placeholder="Ví dụ: 10" />
+                      <Input id="task-points" type="number" placeholder="Ví dụ: 10" value={taskPoints} onChange={(e) => setTaskPoints(Number(e.target.value))} />
                     </div>
                      <div className="grid gap-2">
                       <Label htmlFor="task-assignee">Giao cho</Label>
-                       <Select>
+                       <Select onValueChange={setTaskAssignee} value={taskAssignee}>
                         <SelectTrigger>
                           <SelectValue placeholder="Chọn một bé" />
                         </SelectTrigger>
@@ -161,7 +204,7 @@ export default function ParentDashboard({
                       </Select>
                     </div>
                   </div>
-                   <Button type="submit" className="w-full">Tạo công việc</Button>
+                   <Button type="submit" className="w-full" onClick={handleCreateTask} disabled={isCreating}>{isCreating ? 'Đang tạo...' : 'Tạo công việc'}</Button>
                 </DialogContent>
               </Dialog>
             </CardHeader>
@@ -176,10 +219,10 @@ export default function ParentDashboard({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tasks.map((task) => (
+                  {(tasks || []).map((task) => (
                     <TableRow key={task.id}>
                       <TableCell className="font-medium">{task.title}</TableCell>
-                      <TableCell>{getChildName(task.assignedTo)}</TableCell>
+                      <TableCell>{getChildName(task.assigneeId)}</TableCell>
                       <TableCell>
                         <Badge variant={statusMap[task.status].variant}>
                           {statusMap[task.status].text}
@@ -202,8 +245,9 @@ export default function ParentDashboard({
               </CardHeader>
                <CardContent>
                   {children.map(child => {
-                      const childTasks = tasks.filter(t => t.assignedTo === child.id);
+                      const childTasks = tasks?.filter(t => t.assigneeId === child.id) || [];
                       const completedTasks = childTasks.filter(t => t.status === 'approved').length;
+                      const progress = childTasks.length > 0 ? (completedTasks / childTasks.length) * 100 : 0;
                       return (
                           <div key={child.id} className="mb-4">
                               <div className="flex justify-between items-center">
@@ -211,7 +255,7 @@ export default function ParentDashboard({
                                   <span className="text-muted-foreground text-sm">{completedTasks} / {childTasks.length} việc</span>
                               </div>
                               <div className="w-full bg-muted rounded-full h-2.5 mt-1">
-                                  <div className="bg-primary h-2.5 rounded-full" style={{width: `${(completedTasks/childTasks.length) * 100}%`}}></div>
+                                  <div className="bg-primary h-2.5 rounded-full" style={{width: `${progress}%`}}></div>
                               </div>
                           </div>
                       )

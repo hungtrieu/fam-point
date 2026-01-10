@@ -1,6 +1,8 @@
-import { users, tasks, rewards } from '@/lib/data';
+'use client';
 import ParentDashboard from '@/components/dashboard/parent-dashboard';
 import ChildDashboard from '@/components/dashboard/child-dashboard';
+import { useUser } from '@/firebase';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage({
   searchParams,
@@ -8,22 +10,25 @@ export default function DashboardPage({
   searchParams: { role?: 'parent' | 'child'; user?: string };
 }) {
   const role = searchParams.role || 'child';
+  const { user, isUserLoading } = useUser();
 
-  if (role === 'parent') {
-    const parentUser = users.find((u) => u.role === 'parent');
-    if (!parentUser) return <div>Không tìm thấy người dùng.</div>;
+  if (isUserLoading) {
     return (
-      <ParentDashboard user={parentUser} tasks={tasks} allUsers={users} />
-    );
+       <div className="grid auto-rows-max items-start gap-4 md:gap-8 lg:grid-cols-2">
+          <div className="grid gap-4 auto-rows-max">
+             <Skeleton className="h-40" />
+             <Skeleton className="h-64" />
+          </div>
+          <Skeleton className="h-96" />
+       </div>
+    )
   }
 
-  // For simplicity, we'll use the first child user.
-  // In a real app, this would be the currently logged-in user.
-  const childUser = users.find((u) => u.role === 'child');
-  if (!childUser) return <div>Không tìm thấy người dùng.</div>;
-  const childTasks = tasks.filter((t) => t.assignedTo === childUser.id);
+  if (!user) return <div>Vui lòng đăng nhập để tiếp tục.</div>;
+  
+  if (role === 'parent') {
+    return <ParentDashboard />;
+  }
 
-  return (
-    <ChildDashboard user={childUser} tasks={childTasks} rewards={rewards} />
-  );
+  return <ChildDashboard />;
 }

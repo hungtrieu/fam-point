@@ -3,6 +3,8 @@
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import type { Task } from '@/lib/data';
+import { useFirebase, setDocumentNonBlocking } from '@/firebase';
+import { doc, increment, writeBatch } from 'firebase/firestore';
 
 interface TaskActionsProps {
   task: Task;
@@ -11,6 +13,59 @@ interface TaskActionsProps {
 
 export function TaskActions({ task, role }: TaskActionsProps) {
   const { toast } = useToast();
+  const { firestore } = useFirebase();
+
+  const handleApprove = () => {
+    if (!firestore) return;
+    
+    const batch = writeBatch(firestore);
+
+    // Update task status
+    const taskRef = doc(firestore, 'tasks', task.id);
+    batch.update(taskRef, { status: 'approved' });
+
+    // Award points to the child
+    const userRef = doc(firestore, 'users', task.assigneeId);
+    batch.update(userRef, { points: increment(task.points) });
+    
+    // Add to point history (redemptions subcollection)
+    const redemptionRef = doc(collection(firestore, `users/${task.assigneeId}/redemptions`));
+    batch.set(redemptionRef, {
+        userId: task.assigneeId,
+        description: `Hoàn thành: ${task.title}`,
+        pointsRedeemed: task.points, // Positive value for earning
+        redemptionDate: new Date(),
+    });
+
+
+    batch.commit().then(() => {
+        toast({ title: 'Đã duyệt!', description: `Bạn đã cộng ${task.points} điểm cho công việc "${task.title}".` });
+    }).catch(e => {
+        console.error(e);
+        toast({ title: 'Lỗi!', description: 'Không thể duyệt công việc.', variant: 'destructive'});
+    });
+  };
+
+  const handleReject = () => {
+    if (!firestore) return;
+    const taskRef = doc(firestore, 'tasks', task.id);
+    setDocumentNonBlocking(taskRef, { status: 'todo' }, { merge: true });
+    toast({
+      variant: 'destructive',
+      title: 'Đã từ chối!',
+      description: `Công việc "${task.title}" cần được làm lại.`,
+    });
+  };
+
+  const handleComplete = () => {
+    if (!firestore) return;
+    const taskRef = doc(firestore, 'tasks', task.id);
+    setDocumentNonBlocking(taskRef, { status: 'completed' }, { merge: true });
+    toast({
+      title: 'Hoàn thành!',
+      description: `Công việc "${task.title}" đang chờ bố mẹ duyệt.`,
+    });
+  };
 
   if (role === 'parent' && task.status === 'completed') {
     return (
@@ -18,22 +73,14 @@ export function TaskActions({ task, role }: TaskActionsProps) {
         <Button
           size="sm"
           variant="outline"
-          onClick={() =>
-            toast({ title: 'Đã duyệt!', description: `Bạn đã cộng ${task.points} điểm cho công việc "${task.title}".` })
-          }
+          onClick={handleApprove}
         >
           Duyệt
         </Button>
         <Button
           size="sm"
           variant="destructive"
-          onClick={() =>
-            toast({
-              variant: 'destructive',
-              title: 'Đã từ chối!',
-              description: `Công việc "${task.title}" cần được làm lại.`,
-            })
-          }
+          onClick={handleReject}
         >
           Từ chối
         </Button>
@@ -45,12 +92,7 @@ export function TaskActions({ task, role }: TaskActionsProps) {
     return (
       <Button
         size="sm"
-        onClick={() =>
-          toast({
-            title: 'Hoàn thành!',
-            description: `Công việc "${task.title}" đang chờ bố mẹ duyệt.`,
-          })
-        }
+        onClick={handleComplete}
       >
         Hoàn thành
       </Button>

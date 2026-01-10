@@ -1,4 +1,5 @@
-import { users, rewards } from '@/lib/data';
+'use client';
+import type { User, Reward } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -11,6 +12,10 @@ import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { Star, Gift } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { useCollection, useDoc, useFirebase, useUser, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, doc, Timestamp, increment } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function RewardsPage({
   searchParams,
@@ -18,14 +23,80 @@ export default function RewardsPage({
   searchParams: { role?: 'parent' | 'child' };
 }) {
   const role = searchParams.role || 'child';
+  const { firestore } = useFirebase();
+  const { user: authUser, isUserLoading } = useUser();
+  const { toast } = useToast();
 
-  // For now, we only have a child view for this page.
-  // We can add a parent view later.
-  const childUser = users.find((u) => u.role === 'child');
-  if (!childUser) return <div>Không tìm thấy người dùng.</div>;
+  const userDocRef = useMemoFirebase(() => {
+    if (!firestore || !authUser) return null;
+    return doc(firestore, 'users', authUser.uid);
+  }, [firestore, authUser]);
 
-   const getRewardImage = (imageId: string) => {
+  const rewardsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'rewards');
+  }, [firestore]);
+  
+  const { data: user, isLoading: userLoading } = useDoc<User>(userDocRef);
+  const { data: rewards, isLoading: rewardsLoading } = useCollection<Reward>(rewardsQuery);
+
+
+  const getRewardImage = (imageId: string) => {
     return PlaceHolderImages.find(p => p.id === imageId)?.imageUrl || "https://picsum.photos/seed/placeholder/600/400";
+  }
+
+  const handleRedeem = (reward: Reward) => {
+    if (!firestore || !user || !authUser) return;
+
+    if (user.points! < reward.costInPoints) {
+        toast({ title: "Không đủ điểm", description: "Con chưa đủ điểm để đổi phần thưởng này.", variant: "destructive" });
+        return;
+    }
+
+    const userRef = doc(firestore, 'users', authUser.uid);
+    const redemptionRef = doc(collection(firestore, `users/${authUser.uid}/redemptions`));
+
+    // Deduct points
+    setDocumentNonBlocking(userRef, { points: increment(-reward.costInPoints) }, { merge: true });
+
+    // Create redemption record
+    setDocumentNonBlocking(redemptionRef, {
+        userId: authUser.uid,
+        rewardId: reward.id,
+        description: `Đổi phần thưởng: ${reward.name}`,
+        pointsRedeemed: -reward.costInPoints,
+        redemptionDate: Timestamp.now(),
+    }, {});
+
+    toast({ title: "Đổi quà thành công!", description: `Con đã đổi "${reward.name}".` });
+  }
+
+  const isLoading = isUserLoading || userLoading || rewardsLoading;
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-96 mt-2" />
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[1,2,3,4].map(i => (
+             <Card key={i}>
+                <Skeleton className="aspect-video w-full" />
+                <CardHeader><Skeleton className="h-6 w-48" /></CardHeader>
+                <CardContent><Skeleton className="h-4 w-full" /></CardContent>
+                <CardFooter><Skeleton className="h-10 w-full" /></CardFooter>
+             </Card>
+          ))}
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (role === 'parent') {
+    // Parent view can be implemented here to manage rewards
+    return <div>Chức năng quản lý phần thưởng cho phụ huynh đang được phát triển.</div>
   }
 
   return (
@@ -39,11 +110,11 @@ export default function RewardsPage({
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {rewards.map((reward) => (
+        {(rewards || []).map((reward) => (
           <Card key={reward.id}>
             <div className="relative aspect-video w-full">
               <Image
-                src={getRewardImage(reward.image)}
+                src={getRewardImage(reward.imageUrl)}
                 alt={reward.name}
                 fill
                 className="rounded-t-lg object-cover"
@@ -57,9 +128,9 @@ export default function RewardsPage({
               <p className="text-sm text-muted-foreground">{reward.description}</p>
             </CardContent>
             <CardFooter>
-              <Button className="w-full" disabled={childUser.points! < reward.points}>
+              <Button className="w-full" disabled={(user?.points || 0) < reward.costInPoints} onClick={() => handleRedeem(reward)}>
                 <Star className="mr-2 h-4 w-4" />
-                Đổi {reward.points} điểm
+                Đổi {reward.costInPoints} điểm
               </Button>
             </CardFooter>
           </Card>
