@@ -24,6 +24,15 @@ export type Reward = {
   image: string;
 };
 
+export type PointHistory = {
+  id: string;
+  userId: string;
+  type: 'earn' | 'redeem';
+  description: string;
+  points: number;
+  date: string;
+};
+
 export const users: User[] = [
   {
     id: 'user_parent_1',
@@ -124,4 +133,39 @@ export const rewards: Reward[] = [
     points: 100,
     image: '13',
   },
+];
+
+export const pointHistory: PointHistory[] = [
+  {
+    id: 'hist_1',
+    userId: 'user_child_1',
+    type: 'earn',
+    description: 'Đọc sách 30 phút',
+    points: 10,
+    date: '2023-10-25T20:30:00Z',
+  },
+  {
+    id: 'hist_2',
+    userId: 'user_child_1',
+    type: 'redeem',
+    description: 'Đi xem phim cuối tuần',
+    points: -50,
+    date: '2023-10-22T14:00:00Z',
+  },
+  {
+    id: 'hist_3',
+    userId: 'user_child_2',
+    type: 'earn',
+    description: 'Phụ mẹ nhặt rau',
+    points: 5,
+    date: '2023-10-24T18:30:00Z',
+  },
+  {
+    id: 'hist_4',
+    userId: 'user_child_1',
+    type: 'earn',
+    description: 'Hoàn thành "Phụ mẹ nhặt rau"',
+    points: 5,
+    date: '2023-10-24T18:30:00Z',
+  }
 ];
