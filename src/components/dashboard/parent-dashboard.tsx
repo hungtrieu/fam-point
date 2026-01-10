@@ -70,7 +70,6 @@ export default function ParentDashboard() {
 
   const childrenQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    // Query for users who are children. This requires an index.
     return query(collection(firestore, 'users'), where('role', '==', 'child'));
   }, [firestore]);
 

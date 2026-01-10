@@ -147,7 +147,7 @@ service cloud.firestore {
      */
     match /users/{userId} {
       allow get: if isOwner(userId);
-      allow list: if isParent() && request.query.get('where', [['role', '==', 'child']]);
+      allow list: if isParent() && request.query.where.role == 'child';
       allow create: if isOwner(userId) && isValidUserCreate(userId);
       allow update: if isExistingOwner(userId) && isUserImmutable();
       allow delete: if false; // User accounts should be deleted via a server process.
