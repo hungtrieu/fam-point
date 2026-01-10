@@ -1,3 +1,46 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "1",
+      "description": "Parent avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1580489944761-15a19d654956?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHx3b21hbiUyMHNtaWxpbmd8ZW58MHx8fHwxNzY4MDAyNTIzfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman smiling"
+    },
+    {
+      "id": "2",
+      "description": "Child avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1544457073-505b76b886de?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxnaXJsJTIwc21pbGluZ3xlbnwwfHx8fDE3Njc5Nzk4NTF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "girl smiling"
+    },
+    {
+      "id": "3",
+      "description": "Child avatar 2",
+      "imageUrl": "https://images.unsplash.com/photo-1552873816-636e43209957?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxib3klMjBzbWlsaW5nfGVufDB8fHx8MTc2ODAzMDIyNnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "boy smiling"
+    },
+    {
+      "id": "10",
+      "description": "Movie ticket reward",
+      "imageUrl": "https://images.unsplash.com/photo-1707061803305-58383ee49415?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjaW5lbWElMjB0aWNrZXRzfGVufDB8fHx8MTc2ODAzMDIyNnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "cinema tickets"
+    },
+    {
+      "id": "11",
+      "description": "Lego reward",
+      "imageUrl": "https://images.unsplash.com/photo-1659883718058-e03d7ec598ca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxsZWdvJTIwYmxvY2tzfGVufDB8fHx8MTc2ODAzMDIyNXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "lego blocks"
+    },
+    {
+      "id": "12",
+      "description": "Gaming reward",
+      "imageUrl": "https://images.unsplash.com/photo-1665041982909-8a86864a1e49?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Z2FtZSUyMGNvbnRyb2xsZXJ8ZW58MHx8fHwxNzY3OTY1NDk2fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "game controller"
+    },
+    {
+      "id": "13",
+      "description": "Money reward",
+      "imageUrl": "https://images.unsplash.com/photo-1656049471460-252cdb17809c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxjYXNoJTIwcGlnZ3l8ZW58MHx8fHwxNzY4MDMwMjI2fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "cash piggy"
+    }
+  ]
 }
