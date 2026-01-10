@@ -1,0 +1,195 @@
+/**
+ * # Firestore Security Rules: Gia Đình Gắn Kết
+ *
+ * ## Core Philosophy
+ * This ruleset enforces a strict user-ownership security model. All data that is
+ * considered private or user-specific, such as tasks and redemptions, is nested
+ * within a user's own data tree. Access is granted only to the authenticated
+ * user who owns that specific data tree. This prevents users from accessing or even
+ * discovering the data of other users.
+ *
+ * ## Data Structure
+ * - `/users/{userId}`: Stores public user profiles. Each user can manage their own profile.
+ * - `/users/{userId}/tasks/{taskId}`: A subcollection for tasks. Access is shared between the task's assignee (the owner of the subcollection) and its assigner.
+ * - `/users/{userId}/redemptions/{redemptionId}`: A subcollection for a user's reward redemptions, accessible only by that user.
+ * - `/rewards/{rewardId}`: A top-level collection for globally available rewards. This data is public for all to read.
+ *
+ * ## Key Security Decisions
+ * - **Default Deny**: All paths are closed by default. Access is only granted explicitly.
+ * - **User Data Segregation**: All user-specific data is stored in subcollections under `/users/{userId}`, preventing data leakage between users.
+ * - **No User Listing**: Listing all documents in the top-level `/users` collection is explicitly disallowed to protect user privacy.
+ * - **Admin-Only Writes for Global Data**: The `/rewards` collection is publicly readable, but all write operations are disabled pending the implementation of a specific admin role. This provides a secure-by-default posture.
+ *
+ * ## Denormalization for Authorization
+ * The ruleset relies on denormalized fields for efficient and secure authorization checks, avoiding slow and costly `get()` calls.
+ * - **Task Ownership**: Each `/tasks/{taskId}` document contains both an `assignerId` and an `assigneeId`. This allows rules to grant access to either party without needing to read other documents.
+ * - **Relational Integrity**: On creation, rules validate that denormalized IDs within a document (e.g., a `userId` field) match the user ID in the document's path. This ensures data consistency and correct ownership linkage from the start.
+ *
+ * ## Structural Segregation
+ * User-private data (`tasks`, `redemptions`) is structurally separated into user-owned subcollections. Publicly shared data (`rewards`) is stored in its own top-level collection. This design is more secure and performant for list operations than mixing public and private data in a single collection.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper Functions
+    // --------------------------------
+
+    /**
+     * Checks if a user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the currently authenticated user's UID matches the provided userId.
+     * This is the foundation of the user-ownership model.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Checks for ownership and that the document already exists.
+     * CRITICAL for safe update and delete operations.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+    
+    /**
+     * Checks if the user is either the assigner or the assignee of a task.
+     * Used for shared access to task documents.
+     */
+    function isAssignerOrAssignee() {
+      // On create, check the incoming data. On update/delete/get, check existing data.
+      let taskData = request.method == 'create' ? request.resource.data : resource.data;
+      return isSignedIn() && (request.auth.uid == taskData.assignerId || request.auth.uid == taskData.assigneeId);
+    }
+    
+    /**
+     * Checks that the document exists before allowing an operation.
+     * Used for shared access updates/deletes where ownership is not path-based.
+     */
+    function docExists() {
+      return resource != null;
+    }
+    
+    // Validation: Incoming User Data
+    // --------------------------------
+    
+    /**
+     * Validates that the user `id` field matches the document ID on creation.
+     */
+    function isValidUserCreate(userId) {
+      return request.resource.data.id == userId;
+    }
+    
+    /**
+     * Enforces immutability of the user `id` field during updates.
+     */
+    function isUserImmutable() {
+      return request.resource.data.id == resource.data.id;
+    }
+    
+    // Validation: Incoming Task Data
+    // --------------------------------
+    
+    /**
+     * Validates that the creating user is the assigner and the assigneeId matches the path.
+     */
+    function isValidTaskCreate(userId) {
+      let data = request.resource.data;
+      return data.assignerId == request.auth.uid && data.assigneeId == userId;
+    }
+    
+    /**
+     * Enforces immutability of core relational fields on a task.
+     */
+    function isTaskImmutable() {
+      return request.resource.data.assignerId == resource.data.assignerId
+          && request.resource.data.assigneeId == resource.data.assigneeId;
+    }
+    
+    // Validation: Incoming Redemption Data
+    // --------------------------------
+    
+    /**
+     * Validates that the redemption's internal userId matches the path on creation.
+     */
+    function isValidRedemptionCreate(userId) {
+      return request.resource.data.userId == userId;
+    }
+
+    /**
+     * Enforces immutability of the redemption's userId field during updates.
+     */
+    function isRedemptionImmutable() {
+      return request.resource.data.userId == resource.data.userId;
+    }
+
+    /**
+     * @description Rules for user profile documents.
+     * @path /users/{userId}
+     * @allow (create) An authenticated user creating their own profile document.
+     * @deny (create) An authenticated user trying to create a profile for someone else.
+     * @principle Restricts access to a user's own data tree.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && isValidUserCreate(userId);
+      allow update: if isExistingOwner(userId) && isUserImmutable();
+      allow delete: if false; // User accounts should be deleted via a server process.
+
+      /**
+       * @description Rules for a user's assigned tasks.
+       * @path /users/{userId}/tasks/{taskId}
+       * @allow (get) The assignee or assigner reading a task document.
+       * @deny (get) A random user trying to read someone else's task.
+       * @principle Enforces shared access between the assigner and assignee.
+       */
+      match /tasks/{taskId} {
+        allow get: if docExists() && isAssignerOrAssignee();
+        allow list: if isOwner(userId); // Only the assignee can list all their tasks.
+        allow create: if isSignedIn() && isValidTaskCreate(userId);
+        allow update: if docExists() && isAssignerOrAssignee() && isTaskImmutable();
+        allow delete: if docExists() && isAssignerOrAssignee();
+      }
+
+      /**
+       * @description Rules for a user's reward redemption history.
+       * @path /users/{userId}/redemptions/{redemptionId}
+       * @allow (create) A user creating a redemption record for themselves.
+       * @deny (list) A user trying to list another user's redemption history.
+       * @principle Enforces strict document ownership.
+       */
+      match /redemptions/{redemptionId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidRedemptionCreate(userId);
+        allow update: if isExistingOwner(userId) && isRedemptionImmutable();
+        allow delete: if isExistingOwner(userId);
+      }
+    }
+
+    /**
+     * @description Rules for the global rewards collection.
+     * @path /rewards/{rewardId}
+     * @allow (get, list) Any user, authenticated or not, can view the available rewards.
+     * @deny (create, update, delete) Any client trying to modify the rewards list.
+     * @principle Manages public read-only data with admin-only writes.
+     */
+    match /rewards/{rewardId} {
+      allow get: if true;
+      allow list: if true;
+
+      // CRITICAL: Cannot implement admin-only writes without a defined admin role in the User entity.
+      // All write access is disabled as a secure default.
+      allow create: if false; // TODO: Implement admin role check once available.
+      allow update: if false; // TODO: Implement admin role check once available.
+      allow delete: if false; // TODO: Implement admin role check once available.
+    }
+  }
+}

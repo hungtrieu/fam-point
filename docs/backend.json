@@ -1,0 +1,247 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user in the Gia Đình Gắn Kết application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the user."
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the user (e.g., parent, child)."
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "name",
+        "role"
+      ]
+    },
+    "Task": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Task",
+      "type": "object",
+      "description": "Represents a task assigned to a child.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Task entity."
+        },
+        "assignerId": {
+          "type": "string",
+          "description": "Reference to User who assigned the task. (Relationship: User 1:N Task)"
+        },
+        "assigneeId": {
+          "type": "string",
+          "description": "Reference to User who is assigned the task. (Relationship: User 1:N Task)"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the task."
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the task."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "The due date for completing the task.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the task (e.g., assigned, in progress, completed, approved)."
+        },
+        "rewardPoints": {
+          "type": "number",
+          "description": "Number of points awarded for completing the task."
+        }
+      },
+      "required": [
+        "id",
+        "assignerId",
+        "assigneeId",
+        "title",
+        "description",
+        "dueDate",
+        "status",
+        "rewardPoints"
+      ]
+    },
+    "Reward": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Reward",
+      "type": "object",
+      "description": "Represents a reward that can be redeemed with points.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Reward entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the reward."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the reward."
+        },
+        "costInPoints": {
+          "type": "number",
+          "description": "Number of points required to redeem the reward."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of the image representing the reward.",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "costInPoints"
+      ]
+    },
+    "Redemption": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Redemption",
+      "type": "object",
+      "description": "Represents a redemption of points for a reward or money.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Redemption entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who made the redemption. (Relationship: User 1:N Redemption)"
+        },
+        "rewardId": {
+          "type": "string",
+          "description": "Reference to the Reward that was redeemed (if applicable). (Relationship: Reward 1:N Redemption)"
+        },
+        "redemptionDate": {
+          "type": "string",
+          "description": "Date and time when the redemption was made.",
+          "format": "date-time"
+        },
+        "pointsRedeemed": {
+          "type": "number",
+          "description": "Number of points redeemed."
+        },
+        "cashValue": {
+          "type": "number",
+          "description": "Cash value of the redemption, if applicable."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the cashValue or reward redeemed."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "redemptionDate",
+        "pointsRedeemed"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles. User ID is used as the document ID.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/tasks/{taskId}",
+        "definition": {
+          "entityName": "Task",
+          "schema": {
+            "$ref": "#/backend/entities/Task"
+          },
+          "description": "Stores tasks assigned to a specific user. Includes denormalized 'assignerId' and 'assigneeId' from the parent 'user' document, enabling rules to ensure only the assigned user or the assigner can access/modify the task.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user to whom the task is assigned."
+            },
+            {
+              "name": "taskId",
+              "description": "Unique identifier for the task."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/rewards/{rewardId}",
+        "definition": {
+          "entityName": "Reward",
+          "schema": {
+            "$ref": "#/backend/entities/Reward"
+          },
+          "description": "Stores available rewards. Rewards are globally accessible, but creation/modification can be restricted to admin roles.",
+          "params": [
+            {
+              "name": "rewardId",
+              "description": "Unique identifier for the reward."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/redemptions/{redemptionId}",
+        "definition": {
+          "entityName": "Redemption",
+          "schema": {
+            "$ref": "#/backend/entities/Redemption"
+          },
+          "description": "Stores redemption records for a specific user. User ID is part of the path, enforcing ownership.  Includes denormalized 'userId' from the parent 'user' document, enabling rules to ensure only the owning user can access/modify the redemption.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user who made the redemption."
+            },
+            {
+              "name": "redemptionId",
+              "description": "Unique identifier for the redemption record."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to support the 'Gia Đình Gắn Kết' application, focusing on task assignment, completion tracking, and reward redemption within families. The design emphasizes authorization independence, security, and scalability. Path-based ownership is used for user-related data (tasks and redemptions). \n\nAuthorization Independence is achieved through denormalization where needed. For example, task documents are stored as subcollections of User documents.\n\nThe structure supports the required QAPs (Queries are not Filters) by ensuring that listing operations can be performed securely without requiring filtering based on data within the documents themselves. Data segregation is used to separate user data. The use of path-based ownership for tasks and redemptions ensures that only authorized users can access this data."
+  }
+}
