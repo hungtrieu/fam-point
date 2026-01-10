@@ -1,17 +1,10 @@
 import * as React from 'react';
 import { Home } from 'lucide-react';
 
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarTrigger,
-  SidebarInset,
-} from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { UserNav } from '@/components/user-nav';
-import { SidebarNav } from '@/components/sidebar-nav';
+import { HeaderNav } from '@/components/header-nav';
+import Link from 'next/link';
 
 export default function DashboardLayout({
   children,
@@ -23,31 +16,26 @@ export default function DashboardLayout({
   const role = searchParams?.role || 'child';
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen">
-        <Sidebar>
-          <SidebarHeader>
-            <Button variant="ghost" className="h-10 w-full justify-start px-2 text-lg font-bold font-headline">
-              <Home className="mr-2 h-5 w-5 text-primary" />
-              Gia Đình Gắn Kết
-            </Button>
-          </SidebarHeader>
-          <SidebarContent>
-            <SidebarNav role={role as 'parent' | 'child'} />
-          </SidebarContent>
-        </Sidebar>
-        <SidebarInset className="flex flex-col">
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:px-6">
-            <SidebarTrigger className="sm:hidden" />
-            <div className="ml-auto">
-              <UserNav role={role as 'parent' | 'child'} />
-            </div>
-          </header>
-          <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-6 md:gap-8">
-            {children}
-          </main>
-        </SidebarInset>
-      </div>
-    </SidebarProvider>
+    <div className="flex min-h-screen w-full flex-col">
+      <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
+        <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
+          <Link
+            href="#"
+            className="flex items-center gap-2 text-lg font-semibold md:text-base"
+          >
+            <Home className="h-6 w-6 text-primary" />
+            <span className="">Gia Đình Gắn Kết</span>
+          </Link>
+          <HeaderNav role={role as 'parent' | 'child'} />
+        </nav>
+        {/* TODO: Add mobile sheet navigation */}
+        <div className="ml-auto flex items-center gap-4">
+          <UserNav role={role as 'parent' | 'child'} />
+        </div>
+      </header>
+      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
+        {children}
+      </main>
+    </div>
   );
 }
