@@ -132,7 +132,7 @@ export default function ChildDashboard({
               </div>
               <CardHeader>
                 <CardTitle className="text-base">{reward.name}</CardTitle>
-              </Header>
+              </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">{reward.description}</p>
               </CardContent>
