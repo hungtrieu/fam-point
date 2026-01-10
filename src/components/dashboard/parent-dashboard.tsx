@@ -6,7 +6,6 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from '@/components/ui/card';
 import {
   Table,
@@ -68,18 +67,103 @@ export default function ParentDashboard({
   };
 
   return (
-    <div className="grid auto-rows-max items-start gap-4 md:gap-8 lg:grid-cols-2">
-      <div className="grid gap-4">
-        {tasksToReview.length > 0 && (
+    <div className="container mx-auto p-0">
+      <div className="grid auto-rows-max items-start gap-4 md:gap-8 lg:grid-cols-2">
+        <div className="grid gap-4">
+          {tasksToReview.length > 0 && (
+            <Card>
+              <CardHeader className="flex flex-row items-center gap-4">
+                 <CircleAlert className="h-8 w-8 text-primary" />
+                <div>
+                  <CardTitle>Việc cần duyệt</CardTitle>
+                  <CardDescription>
+                    Có {tasksToReview.length} công việc đã được các con hoàn thành và đang chờ bạn duyệt.
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Công việc</TableHead>
+                      <TableHead>Con</TableHead>
+                      <TableHead className="text-right">Hành động</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tasksToReview.map((task) => (
+                      <TableRow key={task.id}>
+                        <TableCell>
+                          <div className="font-medium">{task.title}</div>
+                          <div className="text-sm text-muted-foreground">+{task.points} điểm</div>
+                        </TableCell>
+                         <TableCell>{getChildName(task.assignedTo)}</TableCell>
+                        <TableCell className="text-right">
+                          <TaskActions task={task} role="parent" />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
-            <CardHeader className="flex flex-row items-center gap-4">
-               <CircleAlert className="h-8 w-8 text-primary" />
-              <div>
-                <CardTitle>Việc cần duyệt</CardTitle>
-                <CardDescription>
-                  Có {tasksToReview.length} công việc đã được các con hoàn thành và đang chờ bạn duyệt.
-                </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div className="flex items-center gap-4">
+                <ClipboardList className="h-8 w-8 text-primary" />
+                <div>
+                  <CardTitle>Tất cả công việc</CardTitle>
+                  <CardDescription>
+                    Xem và quản lý tất cả công việc đã giao.
+                  </CardDescription>
+                </div>
               </div>
+               <Dialog>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="gap-1">
+                    <PlusCircle className="h-4 w-4" />
+                    Thêm việc mới
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Tạo công việc mới</DialogTitle>
+                    <DialogDescription>
+                      Điền thông tin dưới đây để giao việc cho con.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="task-title">Tên công việc</Label>
+                      <Input id="task-title" placeholder="Ví dụ: Dọn dẹp phòng" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="task-desc">Mô tả</Label>
+                      <Textarea id="task-desc" placeholder="Mô tả chi tiết công việc..." />
+                    </div>
+                     <div className="grid gap-2">
+                      <Label htmlFor="task-points">Điểm thưởng</Label>
+                      <Input id="task-points" type="number" placeholder="Ví dụ: 10" />
+                    </div>
+                     <div className="grid gap-2">
+                      <Label htmlFor="task-assignee">Giao cho</Label>
+                       <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Chọn một bé" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {children.map(child => (
+                             <SelectItem key={child.id} value={child.id}>{child.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                   <Button type="submit" className="w-full">Tạo công việc</Button>
+                </DialogContent>
+              </Dialog>
             </CardHeader>
             <CardContent>
               <Table>
@@ -87,137 +171,54 @@ export default function ParentDashboard({
                   <TableRow>
                     <TableHead>Công việc</TableHead>
                     <TableHead>Con</TableHead>
-                    <TableHead className="text-right">Hành động</TableHead>
+                    <TableHead>Trạng thái</TableHead>
+                    <TableHead className="text-right">Điểm</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tasksToReview.map((task) => (
+                  {tasks.map((task) => (
                     <TableRow key={task.id}>
+                      <TableCell className="font-medium">{task.title}</TableCell>
+                      <TableCell>{getChildName(task.assignedTo)}</TableCell>
                       <TableCell>
-                        <div className="font-medium">{task.title}</div>
-                        <div className="text-sm text-muted-foreground">+{task.points} điểm</div>
+                        <Badge variant={statusMap[task.status].variant}>
+                          {statusMap[task.status].text}
+                        </Badge>
                       </TableCell>
-                       <TableCell>{getChildName(task.assignedTo)}</TableCell>
-                      <TableCell className="text-right">
-                        <TaskActions task={task} role="parent" />
-                      </TableCell>
+                      <TableCell className="text-right">{task.points}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
-        )}
+        </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div className="flex items-center gap-4">
-              <ClipboardList className="h-8 w-8 text-primary" />
-              <div>
-                <CardTitle>Tất cả công việc</CardTitle>
-                <CardDescription>
-                  Xem và quản lý tất cả công việc đã giao.
-                </CardDescription>
-              </div>
-            </div>
-             <Dialog>
-              <DialogTrigger asChild>
-                <Button size="sm" className="gap-1">
-                  <PlusCircle className="h-4 w-4" />
-                  Thêm việc mới
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Tạo công việc mới</DialogTitle>
-                  <DialogDescription>
-                    Điền thông tin dưới đây để giao việc cho con.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="task-title">Tên công việc</Label>
-                    <Input id="task-title" placeholder="Ví dụ: Dọn dẹp phòng" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="task-desc">Mô tả</Label>
-                    <Textarea id="task-desc" placeholder="Mô tả chi tiết công việc..." />
-                  </div>
-                   <div className="grid gap-2">
-                    <Label htmlFor="task-points">Điểm thưởng</Label>
-                    <Input id="task-points" type="number" placeholder="Ví dụ: 10" />
-                  </div>
-                   <div className="grid gap-2">
-                    <Label htmlFor="task-assignee">Giao cho</Label>
-                     <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Chọn một bé" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {children.map(child => (
-                           <SelectItem key={child.id} value={child.id}>{child.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                 <Button type="submit" className="w-full">Tạo công việc</Button>
-              </DialogContent>
-            </Dialog>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Công việc</TableHead>
-                  <TableHead>Con</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead className="text-right">Điểm</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tasks.map((task) => (
-                  <TableRow key={task.id}>
-                    <TableCell className="font-medium">{task.title}</TableCell>
-                    <TableCell>{getChildName(task.assignedTo)}</TableCell>
-                    <TableCell>
-                      <Badge variant={statusMap[task.status].variant}>
-                        {statusMap[task.status].text}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">{task.points}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
-
-       <div className="grid gap-4">
-          <Card>
-            <CardHeader>
-                <CardTitle>Thống kê</CardTitle>
-                <CardDescription>Xem nhanh tiến độ của các con.</CardDescription>
-            </CardHeader>
-             <CardContent>
-                {children.map(child => {
-                    const childTasks = tasks.filter(t => t.assignedTo === child.id);
-                    const completedTasks = childTasks.filter(t => t.status === 'approved').length;
-                    return (
-                        <div key={child.id} className="mb-4">
-                            <div className="flex justify-between items-center">
-                                <span className="font-medium">{child.name}</span>
-                                <span className="text-muted-foreground text-sm">{completedTasks} / {childTasks.length} việc</span>
-                            </div>
-                            <div className="w-full bg-muted rounded-full h-2.5 mt-1">
-                                <div className="bg-primary h-2.5 rounded-full" style={{width: `${(completedTasks/childTasks.length) * 100}%`}}></div>
-                            </div>
-                        </div>
-                    )
-                })}
-            </CardContent>
-        </Card>
+         <div className="grid gap-4">
+            <Card>
+              <CardHeader>
+                  <CardTitle>Thống kê</CardTitle>
+                  <CardDescription>Xem nhanh tiến độ của các con.</CardDescription>
+              </CardHeader>
+               <CardContent>
+                  {children.map(child => {
+                      const childTasks = tasks.filter(t => t.assignedTo === child.id);
+                      const completedTasks = childTasks.filter(t => t.status === 'approved').length;
+                      return (
+                          <div key={child.id} className="mb-4">
+                              <div className="flex justify-between items-center">
+                                  <span className="font-medium">{child.name}</span>
+                                  <span className="text-muted-foreground text-sm">{completedTasks} / {childTasks.length} việc</span>
+                              </div>
+                              <div className="w-full bg-muted rounded-full h-2.5 mt-1">
+                                  <div className="bg-primary h-2.5 rounded-full" style={{width: `${(completedTasks/childTasks.length) * 100}%`}}></div>
+                              </div>
+                          </div>
+                      )
+                  })}
+              </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
