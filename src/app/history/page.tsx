@@ -20,7 +20,7 @@ import { History, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useCollection, useFirebase, useUser, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function HistoryPage({
@@ -28,7 +28,7 @@ export default function HistoryPage({
 }: {
   searchParams: { role?: 'parent' | 'child' };
 }) {
-  const role = searchParams.role || 'child';
+  const role = searchParams?.role || 'child';
   const { firestore } = useFirebase();
   const { user: authUser, isUserLoading } = useUser();
 
@@ -124,7 +124,7 @@ export default function HistoryPage({
                     {item.pointsRedeemed > 0 ? `+${item.pointsRedeemed}` : item.pointsRedeemed}
                 </TableCell>
                 <TableCell className="text-right text-muted-foreground">
-                  {format(item.redemptionDate.toDate(), "d 'tháng' M, yyyy", { locale: vi })}
+                  {format((item.redemptionDate as unknown as Timestamp).toDate(), "d 'tháng' M, yyyy", { locale: vi })}
                 </TableCell>
               </TableRow>
             ))}

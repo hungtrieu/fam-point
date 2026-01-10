@@ -30,6 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose
 } from '@/components/ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -42,7 +43,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { useCollection, useFirebase, useUser, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, Timestamp } from 'firebase/firestore';
+import { collection, query, where, Timestamp, doc } from 'firebase/firestore';
 import { useState } from 'react';
 
 const statusMap: { [key in Task['status']]: { text: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' } } = {
@@ -59,12 +60,13 @@ export default function ParentDashboard() {
   const [taskPoints, setTaskPoints] = useState(0);
   const [taskAssignee, setTaskAssignee] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
 
   const allTasksQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'tasks');
-  }, [firestore]);
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'tasks'), where('assignerId', '==', user.uid));
+  }, [firestore, user]);
 
   const allUsersQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -86,7 +88,10 @@ export default function ParentDashboard() {
     setIsCreating(true);
 
     const tasksCollection = collection(firestore, 'tasks');
+    const newDocRef = doc(tasksCollection);
+
     addDocumentNonBlocking(tasksCollection, {
+      id: newDocRef.id,
       title: taskTitle,
       description: taskDesc,
       points: taskPoints,
@@ -97,7 +102,7 @@ export default function ParentDashboard() {
       dueDate: Timestamp.now(), // Placeholder, you might want a date picker
     }).finally(() => {
         setIsCreating(false);
-        // Close dialog logic here
+        setIsDialogOpen(false);
         setTaskTitle('');
         setTaskDesc('');
         setTaskPoints(0);
@@ -163,7 +168,7 @@ export default function ParentDashboard() {
                   </CardDescription>
                 </div>
               </div>
-               <Dialog>
+               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" className="gap-1">
                     <PlusCircle className="h-4 w-4" />
@@ -204,7 +209,9 @@ export default function ParentDashboard() {
                       </Select>
                     </div>
                   </div>
-                   <Button type="submit" className="w-full" onClick={handleCreateTask} disabled={isCreating}>{isCreating ? 'Đang tạo...' : 'Tạo công việc'}</Button>
+                  <DialogClose asChild>
+                    <Button type="submit" className="w-full" onClick={handleCreateTask} disabled={isCreating}>{isCreating ? 'Đang tạo...' : 'Tạo công việc'}</Button>
+                  </DialogClose>
                 </DialogContent>
               </Dialog>
             </CardHeader>

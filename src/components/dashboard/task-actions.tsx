@@ -3,8 +3,8 @@
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import type { Task } from '@/lib/data';
-import { useFirebase, setDocumentNonBlocking } from '@/firebase';
-import { doc, increment, writeBatch } from 'firebase/firestore';
+import { useFirebase, setDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { doc, increment, writeBatch, collection, Timestamp } from 'firebase/firestore';
 
 interface TaskActionsProps {
   task: Task;
@@ -34,7 +34,7 @@ export function TaskActions({ task, role }: TaskActionsProps) {
         userId: task.assigneeId,
         description: `Hoàn thành: ${task.title}`,
         pointsRedeemed: task.points, // Positive value for earning
-        redemptionDate: new Date(),
+        redemptionDate: Timestamp.now(),
     });
 
 

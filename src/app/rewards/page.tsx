@@ -22,7 +22,7 @@ export default function RewardsPage({
 }: {
   searchParams: { role?: 'parent' | 'child' };
 }) {
-  const role = searchParams.role || 'child';
+  const role = searchParams?.role || 'child';
   const { firestore } = useFirebase();
   const { user: authUser, isUserLoading } = useUser();
   const { toast } = useToast();
@@ -42,13 +42,14 @@ export default function RewardsPage({
 
 
   const getRewardImage = (imageId: string) => {
-    return PlaceHolderImages.find(p => p.id === imageId)?.imageUrl || "https://picsum.photos/seed/placeholder/600/400";
+    const image = PlaceHolderImages.find(p => p.id === imageId);
+    return image ? image.imageUrl : "https://picsum.photos/seed/placeholder/600/400";
   }
 
   const handleRedeem = (reward: Reward) => {
     if (!firestore || !user || !authUser) return;
 
-    if (user.points! < reward.costInPoints) {
+    if ((user.points || 0) < reward.costInPoints) {
         toast({ title: "Không đủ điểm", description: "Con chưa đủ điểm để đổi phần thưởng này.", variant: "destructive" });
         return;
     }
@@ -60,13 +61,13 @@ export default function RewardsPage({
     setDocumentNonBlocking(userRef, { points: increment(-reward.costInPoints) }, { merge: true });
 
     // Create redemption record
-    setDocumentNonBlocking(redemptionRef, {
+    addDocumentNonBlocking(redemptionRef, {
         userId: authUser.uid,
         rewardId: reward.id,
         description: `Đổi phần thưởng: ${reward.name}`,
         pointsRedeemed: -reward.costInPoints,
         redemptionDate: Timestamp.now(),
-    }, {});
+    });
 
     toast({ title: "Đổi quà thành công!", description: `Con đã đổi "${reward.name}".` });
   }
@@ -114,7 +115,7 @@ export default function RewardsPage({
           <Card key={reward.id}>
             <div className="relative aspect-video w-full">
               <Image
-                src={getRewardImage(reward.imageUrl)}
+                src={getRewardImage(reward.imageUrl || 'placeholder')}
                 alt={reward.name}
                 fill
                 className="rounded-t-lg object-cover"
