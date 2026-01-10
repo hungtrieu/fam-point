@@ -16,7 +16,7 @@
  *
  * ## Key Security Decisions
  * - **Default Deny**: All paths are closed by default. Access is only granted explicitly.
- * - **User Data Segregation**: All user-specific data is stored in subcollections under `/users/{userId}`, preventing data leakage between users.
+ * - **User Data Segregation**: User-specific data can be stored in subcollections under `/users/{userId}` to prevent data leakage. However, for querying efficiency, a top-level `/tasks` collection is used, secured by rules that check denormalized `assignerId` and `assigneeId` fields.
  * - **Restricted User Listing**: Listing all users is disallowed. However, parents are allowed to query for users with the role of 'child'.
  * - **Admin-Only Writes for Global Data**: The `/rewards` collection is publicly readable, but all write operations are disabled pending the implementation of a specific admin role. This provides a secure-by-default posture.
  *
@@ -26,7 +26,7 @@
  * - **Relational Integrity**: On creation, rules validate that denormalized IDs within a document (e.g., a `userId` field) match the user ID in the document's path. This ensures data consistency and correct ownership linkage from the start.
  *
  * ## Structural Segregation
- * User-private data (`tasks`, `redemptions`) is structurally separated into user-owned subcollections. Publicly shared data (`rewards`) is stored in its own top-level collection. This design is more secure and performant for list operations than mixing public and private data in a single collection.
+ * User-private data (`redemptions`) is structurally separated into user-owned subcollections. Publicly shared data (`rewards`) and semi-private queryable data (`tasks`) are stored in their own top-level collections.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -140,39 +140,22 @@ service cloud.firestore {
     /**
      * @description Rules for user profile documents.
      * @path /users/{userId}
-     * @allow (create) An authenticated user creating their own profile document.
-     * @allow (list) A parent querying for users with the role 'child'.
-     * @deny (create) An authenticated user trying to create a profile for someone else.
-     * @principle Restricts access to a user's own data tree, with an exception for parents.
+     * @allow (get, update) A user can get or update their own profile.
+     * @allow (create) An authenticated user can create their own profile.
+     * @allow (list) A parent can query for users with the role 'child'.
+     * @principle Restricts access to a user's own data, with an exception for parents listing children.
      */
     match /users/{userId} {
       allow get: if isOwner(userId);
-      // Allow a parent to list users, but only when they are specifically querying for children.
       allow list: if isParent() && request.query.get('where', [['role', '==', 'child']]);
       allow create: if isOwner(userId) && isValidUserCreate(userId);
       allow update: if isExistingOwner(userId) && isUserImmutable();
       allow delete: if false; // User accounts should be deleted via a server process.
 
       /**
-       * @description Rules for a user's assigned tasks.
-       * @path /users/{userId}/tasks/{taskId}
-       * @allow (get) The assignee or assigner reading a task document.
-       * @deny (get) A random user trying to read someone else's task.
-       * @principle Enforces shared access between the assigner and assignee.
-       */
-      match /tasks/{taskId} {
-        allow get: if docExists() && isAssignerOrAssignee();
-        allow list: if isOwner(userId); // Only the assignee can list all their tasks.
-        allow create: if isSignedIn() && isValidTaskCreate(userId);
-        allow update: if docExists() && isAssignerOrAssignee() && isTaskImmutable();
-        allow delete: if docExists() && isAssignerOrAssignee();
-      }
-
-      /**
        * @description Rules for a user's reward redemption history.
        * @path /users/{userId}/redemptions/{redemptionId}
-       * @allow (create) A user creating a redemption record for themselves.
-       * @deny (list) A user trying to list another user's redemption history.
+       * @allow (get, list, create, update, delete) A user can manage their own redemption records.
        * @principle Enforces strict document ownership.
        */
       match /redemptions/{redemptionId} {
@@ -187,31 +170,29 @@ service cloud.firestore {
     /**
      * @description Rules for the global rewards collection.
      * @path /rewards/{rewardId}
-     * @allow (get, list) Any user, authenticated or not, can view the available rewards.
-     * @deny (create, update, delete) Any client trying to modify the rewards list.
-     * @principle Manages public read-only data with admin-only writes.
+     * @allow (get, list) Any user can view the available rewards.
+     * @deny (create, update, delete) No client-side writes are allowed.
+     * @principle Manages public read-only data.
      */
     match /rewards/{rewardId} {
-      allow get: if true;
-      allow list: if true;
-
-      // CRITICAL: Cannot implement admin-only writes without a defined admin role in the User entity.
-      // All write access is disabled as a secure default.
-      allow create: if false; // TODO: Implement admin role check once available.
-      allow update: if false; // TODO: Implement admin role check once available.
-      allow delete: if false; // TODO: Implement admin role check once available.
+      allow get, list: if true;
+      allow create, update, delete: if false; // Only admins should write, done via a backend process.
     }
 
     /**
-     * @description Rules for the tasks collection.
+     * @description Rules for the top-level tasks collection.
      * @path /tasks/{taskId}
-     * @allow (read, write) The assigner or assignee of the task.
-     * @deny (read, write) Anyone else.
-     * @principle Ensures only relevant users can access a task.
+     * @allow (get, update, delete) The assigner or assignee can manage the task.
+     * @allow (list) A user can query for tasks assigned to them or by them.
+     * @allow (create) A parent can create a task.
+     * @principle Secures a denormalized collection for efficient querying.
      */
     match /tasks/{taskId} {
       allow get: if docExists() && isAssignerOrAssignee();
-      allow list: if isParent(); // Allow parents to list tasks they've assigned.
+      // Allow listing if the query constrains to either the user being the assignee OR the assigner.
+      allow list: if isSignedIn() && 
+                   (request.query.get('where', [['assigneeId', '==', request.auth.uid]]) || 
+                    request.query.get('where', [['assignerId', '==', request.auth.uid]]));
       allow create: if isParent() && request.resource.data.assignerId == request.auth.uid;
       allow update: if docExists() && isAssignerOrAssignee() && isTaskImmutable();
       allow delete: if docExists() && isAssignerOrAssignee();
