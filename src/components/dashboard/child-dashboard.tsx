@@ -25,6 +25,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useCollection, useDoc, useFirebase, useUser, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, doc, Timestamp, increment, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '../ui/skeleton';
 
 const statusMap: { [key in Task['status']]: { text: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' } } = {
   todo: { text: 'Cần làm', variant: 'default' },
@@ -95,7 +96,24 @@ export default function ChildDashboard() {
   const isLoading = isUserLoading || userLoading || tasksLoading || rewardsLoading;
 
   if (isLoading) {
-      return <div>Đang tải...</div>
+      return (
+        <div className="grid auto-rows-max items-start gap-4 md:gap-8 lg:grid-cols-2">
+            <div className="grid gap-4 auto-rows-max">
+                <Card>
+                    <CardHeader><Skeleton className="h-8 w-48" /><Skeleton className="h-4 w-64 mt-2" /></CardHeader>
+                    <CardContent><Skeleton className="h-10 w-24 float-right" /></CardContent>
+                </Card>
+                <Card>
+                    <CardHeader><Skeleton className="h-8 w-32" /></CardHeader>
+                    <CardContent><Skeleton className="h-32 w-full" /></CardContent>
+                </Card>
+            </div>
+            <Card>
+                <CardHeader><Skeleton className="h-8 w-48" /><Skeleton className="h-4 w-64 mt-2" /></CardHeader>
+                <CardContent><Skeleton className="h-64 w-full" /></CardContent>
+            </Card>
+        </div>
+      )
   }
   
   if (!user) {
@@ -207,4 +225,5 @@ export default function ChildDashboard() {
     </div>
   );
 }
+
     

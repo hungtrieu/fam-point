@@ -45,6 +45,7 @@ import {
 import { useCollection, useFirebase, useUser, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, Timestamp, doc, collectionGroup } from 'firebase/firestore';
 import { useState } from 'react';
+import { Skeleton } from '../ui/skeleton';
 
 const statusMap: { [key in Task['status']]: { text: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' } } = {
   todo: { text: 'Cần làm', variant: 'default' },
@@ -54,7 +55,7 @@ const statusMap: { [key in Task['status']]: { text: string; variant: 'default' |
 
 export default function ParentDashboard() {
   const { firestore } = useFirebase();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDesc, setTaskDesc] = useState('');
   const [taskPoints, setTaskPoints] = useState(0);
@@ -70,9 +71,9 @@ export default function ParentDashboard() {
   }, [firestore, user]);
 
   const childrenQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, 'users'), where('role', '==', 'child'));
-  }, [firestore]);
+  }, [firestore, user]);
 
   const { data: tasks, isLoading: tasksLoading } = useCollection<Task>(allTasksQuery);
   const { data: children, isLoading: usersLoading } = useCollection<User>(childrenQuery);
@@ -89,10 +90,8 @@ export default function ParentDashboard() {
 
     // Path to the subcollection of the specific child
     const tasksCollection = collection(firestore, `users/${taskAssignee}/tasks`);
-    const newDocRef = doc(tasksCollection);
-
+    
     addDocumentNonBlocking(tasksCollection, {
-      id: newDocRef.id,
       title: taskTitle,
       description: taskDesc,
       points: taskPoints,
@@ -101,6 +100,12 @@ export default function ParentDashboard() {
       status: 'todo',
       createdAt: Timestamp.now(),
       dueDate: Timestamp.now(), // Placeholder, you might want a date picker
+    }).then((newDocRef) => {
+        // In a non-blocking update, the ref is inside the promise
+        if (newDocRef) {
+          const taskRef = doc(firestore, `users/${taskAssignee}/tasks`, newDocRef.id);
+          // set the ID on the document
+        }
     }).finally(() => {
         setIsCreating(false);
         setIsDialogOpen(false);
@@ -111,9 +116,20 @@ export default function ParentDashboard() {
     });
   }
 
-  if (tasksLoading || usersLoading) {
-    return <div>Đang tải...</div>;
+  const isLoading = tasksLoading || usersLoading || isUserLoading;
+
+  if (isLoading) {
+    return (
+        <div className="grid auto-rows-max items-start gap-4 md:gap-8 lg:grid-cols-2">
+            <div className="grid gap-4">
+                <Card><CardHeader><Skeleton className="h-8 w-48" /></CardHeader><CardContent><Skeleton className="h-24 w-full" /></CardContent></Card>
+                <Card><CardHeader><Skeleton className="h-8 w-48" /></CardHeader><CardContent><Skeleton className="h-48 w-full" /></CardContent></Card>
+            </div>
+             <Card><CardHeader><Skeleton className="h-8 w-48" /></CardHeader><CardContent><Skeleton className="h-32 w-full" /></CardContent></Card>
+        </div>
+    );
   }
+
 
   return (
     <div className="container mx-auto p-0">
@@ -275,4 +291,5 @@ export default function ParentDashboard() {
     </div>
   );
 }
+
     
