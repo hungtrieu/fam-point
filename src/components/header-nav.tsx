@@ -28,17 +28,17 @@ export function HeaderNav({ role, mobile = false }: HeaderNavProps) {
       icon: LayoutDashboard,
     },
     {
-      href: `/dashboard/tasks?role=parent`,
+      href: `/tasks?role=parent`,
       label: 'Quản lý công việc',
       icon: ClipboardList,
     },
     {
-      href: `/dashboard/rewards?role=parent`,
+      href: `/rewards?role=parent`,
       label: 'Quản lý quà',
       icon: Gift,
     },
     {
-      href: `/dashboard/children?role=parent`,
+      href: `/children?role=parent`,
       label: 'Quản lý con',
       icon: Users,
     },
@@ -51,12 +51,12 @@ export function HeaderNav({ role, mobile = false }: HeaderNavProps) {
       icon: LayoutDashboard,
     },
     {
-      href: `/dashboard/rewards?role=child`,
+      href: `/rewards?role=child`,
       label: 'Cửa hàng quà',
       icon: Gift,
     },
     {
-      href: `/dashboard/history?role=child`,
+      href: `/history?role=child`,
       label: 'Lịch sử điểm',
       icon: History,
     },
