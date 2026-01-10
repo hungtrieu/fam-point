@@ -15,15 +15,12 @@ import { SidebarNav } from '@/components/sidebar-nav';
 
 export default function DashboardLayout({
   children,
-  ...props
+  searchParams,
 }: {
   children: React.ReactNode;
+  searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  const { searchParams } = new URL(
-    props.router.asPath,
-    'http://localhost'
-  );
-  const role = searchParams.get('role') || 'child';
+  const role = searchParams?.role || 'child';
 
   return (
     <SidebarProvider>
