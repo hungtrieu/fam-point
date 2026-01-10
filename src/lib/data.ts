@@ -1,4 +1,4 @@
-import { Timestamp } from 'firebase/firestore';
+
 
 export type User = {
   id: string;
@@ -7,6 +7,7 @@ export type User = {
   avatar: string;
   points?: number;
   email: string;
+  familyId: string;
 };
 
 export type Task = {
@@ -17,8 +18,8 @@ export type Task = {
   assigneeId: string;
   assignerId: string;
   status: 'todo' | 'completed' | 'approved';
-  createdAt: Timestamp;
-  dueDate: Timestamp;
+  createdAt: string;
+  dueDate: string;
 };
 
 export type Reward = {
@@ -35,7 +36,7 @@ export type Redemption = {
   rewardId?: string;
   description: string;
   pointsRedeemed: number;
-  redemptionDate: Timestamp;
+  redemptionDate: string;
 };
 
 // Mock data is no longer needed as we will fetch from Firestore.

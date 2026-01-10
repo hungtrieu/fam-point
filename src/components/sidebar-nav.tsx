@@ -40,8 +40,8 @@ export function SidebarNav({ role }: SidebarNavProps) {
       icon: Gift,
     },
     {
-      href: `/dashboard/children?role=parent`,
-      label: 'Quản lý con',
+      href: `/members?role=parent`,
+      label: 'Quản lý thành viên',
       icon: Users,
     },
   ];
@@ -83,7 +83,7 @@ export function SidebarNav({ role }: SidebarNavProps) {
         const url = createUrl(item.href);
         const [pathOnly] = item.href.split('?');
         const isActive = pathname === pathOnly;
-        
+
         return (
           <SidebarMenuItem key={item.label}>
             <Link href={url}>
