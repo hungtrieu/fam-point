@@ -17,8 +17,9 @@ export type User = {
 interface AuthContextType {
     user: User | null;
     isLoading: boolean;
-    login: (userData: User) => void;
+    login: (userData: User, callbackUrl?: string) => void;
     logout: () => void;
+    refreshUser: () => Promise<void>;
     isAuthenticated: boolean;
 }
 
@@ -42,16 +43,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
     }, []);
 
-    const login = (userData: User) => {
+    const login = (userData: User, callbackUrl?: string) => {
         setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
-        router.push('/dashboard');
+        router.push(callbackUrl || '/dashboard');
     };
 
     const logout = () => {
         setUser(null);
         localStorage.removeItem('user');
         router.push('/auth/login');
+    };
+
+    const refreshUser = async () => {
+        if (!user?.id) return;
+        try {
+            const res = await fetch(`/api/profile?userId=${user.id}`);
+            if (res.ok) {
+                const updatedData = await res.json();
+                // Preserve familyName from current state if not returned by API
+                const mergedUser = { ...user, ...updatedData };
+                setUser(mergedUser);
+                localStorage.setItem('user', JSON.stringify(mergedUser));
+            }
+        } catch (error) {
+            console.error('Failed to refresh user data:', error);
+        }
     };
 
     return (
@@ -61,6 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 isLoading,
                 login,
                 logout,
+                refreshUser,
                 isAuthenticated: !!user,
             }}
         >

@@ -19,6 +19,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+import { ArrowLeft } from 'lucide-react';
+
 const formSchema = z.object({
     familyName: z.string().min(1, {
         message: 'Vui lòng nhập tên gia đình.',
@@ -33,8 +35,12 @@ const formSchema = z.object({
 
 import { useAuth } from '@/context/auth-context';
 
+import { useSearchParams } from 'next/navigation';
+
 export default function LoginPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const callbackUrl = searchParams.get('callbackUrl') || undefined;
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -73,7 +79,7 @@ export default function LoginPage() {
             }
 
             // Login using context
-            login(data.user);
+            login(data.user, callbackUrl);
 
         } catch (err: any) {
             console.error(err);
@@ -86,6 +92,15 @@ export default function LoginPage() {
         <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
             <Card className="w-full max-w-md">
                 <CardHeader className="space-y-1">
+                    <div className="flex items-center justify-start mb-2">
+                        <Link
+                            href="/"
+                            className="text-sm text-muted-foreground hover:text-primary flex items-center transition-colors"
+                        >
+                            <ArrowLeft className="h-4 w-4 mr-1" />
+                            Quay lại trang chủ
+                        </Link>
+                    </div>
                     <CardTitle className="text-2xl font-bold text-center">Đăng nhập</CardTitle>
                     <CardDescription className="text-center">
                         Nhập email và mật khẩu của bạn để truy cập

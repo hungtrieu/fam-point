@@ -12,7 +12,7 @@ export default function LandingPage() {
       <header className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-2 font-bold text-2xl text-primary">
           <Heart className="h-8 w-8 fill-current" />
-          <span>FamPoint</span>
+          <span>Family Rewards</span>
         </div>
         <div className="flex items-center gap-4">
           <Link href="/auth/login">

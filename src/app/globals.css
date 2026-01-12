@@ -42,6 +42,7 @@ body {
     --sidebar-border: 30 20% 88%;
     --sidebar-ring: 36 100% 71%;
   }
+
   .dark {
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
@@ -82,7 +83,14 @@ body {
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@media (min-width: 640px) {
+  .sm\:text-6xl {
+    line-height: 1.2 !important;
   }
 }

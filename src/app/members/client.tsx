@@ -177,8 +177,9 @@ export default function ChildrenClient({ initialData }: ChildrenClientProps) {
                     <p className="text-muted-foreground mt-2">Quản lý danh sách và thông tin đăng nhập của các thành viên.</p>
                 </div>
                 {user?.role === 'parent' && (
-                    <Button onClick={() => setIsAddOpen(true)} className="shadow-lg transition-all hover:scale-105">
-                        <Plus className="mr-2 h-4 w-4" /> Thêm thành viên
+                    <Button onClick={() => setIsAddOpen(true)} className="shadow-lg transition-all hover:scale-105 shrink-0">
+                        <Plus className="h-4 w-4 md:mr-2" />
+                        <span className="hidden md:inline">Thêm thành viên</span>
                     </Button>
                 )}
             </div>

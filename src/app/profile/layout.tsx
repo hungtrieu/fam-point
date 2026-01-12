@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/sheet';
 import { AuthGuard } from '@/components/auth-guard';
 
-export default function TasksLayout({
+export default function ProfileLayout({
     children,
 }: {
     children: React.ReactNode;

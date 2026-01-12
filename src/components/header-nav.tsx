@@ -24,11 +24,6 @@ export function HeaderNav({ mobile = false }: HeaderNavProps) {
 
   const parentNavItems = [
     {
-      href: `/dashboard`,
-      label: 'Bảng điều khiển',
-      icon: LayoutDashboard,
-    },
-    {
       href: `/tasks`,
       label: 'Quản lý công việc',
       icon: ClipboardList,
@@ -47,9 +42,9 @@ export function HeaderNav({ mobile = false }: HeaderNavProps) {
 
   const childNavItems = [
     {
-      href: `/dashboard`,
-      label: 'Bảng điều khiển',
-      icon: LayoutDashboard,
+      href: `/tasks`,
+      label: 'Danh sách công việc',
+      icon: ClipboardList,
     },
     {
       href: `/rewards`,

@@ -18,6 +18,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ArrowLeft } from 'lucide-react';
 
 const formSchema = z.object({
     familyName: z.string().min(2, {
@@ -91,6 +92,15 @@ export default function SignupPage() {
         <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
             <Card className="w-full max-w-md">
                 <CardHeader className="space-y-1">
+                    <div className="flex items-center justify-start mb-2">
+                        <Link
+                            href="/"
+                            className="text-sm text-muted-foreground hover:text-primary flex items-center transition-colors"
+                        >
+                            <ArrowLeft className="h-4 w-4 mr-1" />
+                            Quay lại trang chủ
+                        </Link>
+                    </div>
                     <CardTitle className="text-2xl font-bold text-center">Tạo tài khoản</CardTitle>
                     <CardDescription className="text-center">
                         Nhập thông tin bên dưới để tạo tài khoản gia đình của bạn

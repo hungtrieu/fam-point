@@ -25,22 +25,17 @@ export function SidebarNav({ role }: SidebarNavProps) {
 
   const parentNavItems = [
     {
-      href: `/dashboard?role=parent`,
-      label: 'Bảng điều khiển',
-      icon: LayoutDashboard,
-    },
-    {
-      href: `/dashboard/tasks?role=parent`,
+      href: `/tasks`,
       label: 'Quản lý công việc',
       icon: ClipboardList,
     },
     {
-      href: `/dashboard/rewards?role=parent`,
+      href: `/rewards`,
       label: 'Quản lý quà',
       icon: Gift,
     },
     {
-      href: `/members?role=parent`,
+      href: `/members`,
       label: 'Quản lý thành viên',
       icon: Users,
     },
@@ -48,17 +43,17 @@ export function SidebarNav({ role }: SidebarNavProps) {
 
   const childNavItems = [
     {
-      href: `/dashboard?role=child`,
-      label: 'Bảng điều khiển',
-      icon: LayoutDashboard,
+      href: `/tasks`,
+      label: 'Danh sách công việc',
+      icon: ClipboardList,
     },
     {
-      href: `/dashboard/rewards?role=child`,
+      href: `/rewards`,
       label: 'Cửa hàng quà',
       icon: Gift,
     },
     {
-      href: `/dashboard/history?role=child`,
+      href: `/history`,
       label: 'Lịch sử điểm',
       icon: History,
     },

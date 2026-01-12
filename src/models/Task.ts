@@ -14,7 +14,16 @@ const TaskSchema = new mongoose.Schema({
         min: 0,
     },
     assignedTo: {
-        type: String, // User ID or specific child identifier. For now, string is flexible.
+        type: String, // Child's name for display
+    },
+    assignedToId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+    },
+    familyId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Family',
+        required: true,
     },
     status: {
         type: String,
@@ -22,7 +31,8 @@ const TaskSchema = new mongoose.Schema({
         default: 'pending',
     },
     createdBy: {
-        type: String, // Parent User ID
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
     },
     createdAt: {
         type: Date,
