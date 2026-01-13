@@ -92,7 +92,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="py-8 text-center text-sm text-muted-foreground border-t">
-        <p>&copy; {new Date().getFullYear()} FamPoint. Xây dựng thói quen, vun đắp yêu thương.</p>
+        <p>&copy; {new Date().getFullYear()} Family Rewards. Xây dựng thói quen, vun đắp yêu thương.</p>
       </footer>
     </div>
   );
