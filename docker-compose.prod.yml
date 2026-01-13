@@ -1,21 +1,23 @@
-# version: '3.8'
+version: '3.8'
 
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - MONGODB_URI=${MONGODB_URI}
     container_name: fam-point-app
     restart: always
     ports:
-      - "9002:3000"
+      - "3003:3000"
     environment:
       - MONGODB_URI=${MONGODB_URI}
       - NODE_ENV=production
-    # networks:
-    #   - app-network
+    networks:
+      - app-network
 
-# networks:
-#   app-network:
-#     external: true
-#     name: common-network # Change this to the network name your MongoDB is on
+networks:
+  app-network:
+    external: true
+    name: common-network # Đảm bảo network này trùng với network của MongoDB container
