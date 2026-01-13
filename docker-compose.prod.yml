@@ -1,4 +1,4 @@
-version: '3.8'
+# version: '3.8'
 
 services:
   app:
@@ -10,7 +10,7 @@ services:
     container_name: fam-point-app
     restart: always
     ports:
-      - "3003:3000"
+      - "9002:3000"
     environment:
       - MONGODB_URI=${MONGODB_URI}
       - NODE_ENV=production
