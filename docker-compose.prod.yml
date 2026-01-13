@@ -12,8 +12,8 @@ services:
     environment:
       - MONGODB_URI=${MONGODB_URI}
       - NODE_ENV=production
-    networks:
-      - app-network
+    # networks:
+    #   - app-network
 
 # networks:
 #   app-network:
