@@ -5,6 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - MONGODB_URI=${MONGODB_URI}
     container_name: fam-point-app
     restart: always
     ports:
