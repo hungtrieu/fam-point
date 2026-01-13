@@ -62,9 +62,20 @@ export async function POST(req: Request) {
             { status: 201 }
         );
     } catch (error: any) {
-        console.error('Signup error full object:', JSON.stringify(error, null, 2));
-        console.error('Signup error code:', error.code);
-        console.error('Signup error keyPattern:', error.keyPattern);
+        console.error('❌ Signup error encountered:', {
+            name: error.name,
+            message: error.message,
+            code: error.code,
+            stack: error.stack?.split('\n').slice(0, 3).join('\n') // Log 3 dòng đầu của stack trace
+        });
+
+        // Handle Connection Errors (including Authentication)
+        if (error.name === 'MongoServerError' || error.name === 'MongooseServerSelectionError') {
+            return NextResponse.json({
+                message: 'Lỗi kết nối hoặc xác thực cơ sở dữ liệu',
+                debug: error.message
+            }, { status: 500 });
+        }
 
         // Handle duplicate key error (E11000) specifically if needed
         if (error.code === 11000) {
