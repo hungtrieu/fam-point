@@ -34,7 +34,7 @@ export async function createChild(familyId: string, prevState: any, formData: Fo
     const name = formData.get('name') as string;
     const email = formData.get('email') as string;
     const role = formData.get('role') as string || 'child';
-    const avatar = formData.get('avatar') as string || '/placeholder-avatar.png'; // simple default
+    // const avatar = formData.get('avatar') as string || '/placeholder-avatar.png'; // simple default
 
     if (!name || !email) {
         return { success: false, error: 'Missing required fields' };
@@ -52,7 +52,7 @@ export async function createChild(familyId: string, prevState: any, formData: Fo
             password: hashedPassword,
             role,
             familyId,
-            avatar,
+            // avatar,
             points: 0
         });
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Plus, Pencil, Trash2, CheckCircle2, Circle, Clock, Coins, Hand, Play, Check } from 'lucide-react';
+import { Plus, Pencil, Trash2, CheckCircle2, Circle, Clock, Coins, Hand, Play, Check, Sparkles, Droplets, Utensils, Shirt, Leaf, Repeat, Brush } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -36,6 +36,7 @@ interface Task {
     assignedTo?: string;
     assignedToId?: string;
     status: 'pending' | 'in_progress' | 'completed' | 'approved';
+    repeatFrequency: 'none' | 'daily' | 'weekly';
     createdAt: string;
 }
 
@@ -76,9 +77,10 @@ export default function TasksPage() {
             const res = await fetch(`/api/tasks?familyId=${user?.familyId}`);
             if (!res.ok) throw new Error('Failed to fetch');
             const data = await res.json();
-            const sanitizedTasks = data.map((t: Task) => ({
+            const sanitizedTasks = data.map((t: any) => ({
                 ...t,
-                assignedTo: t.assignedTo || 'unassigned'
+                assignedTo: t.assignedTo || 'unassigned',
+                assignedToId: typeof t.assignedToId === 'object' ? t.assignedToId?._id : t.assignedToId
             }));
             setTasks(sanitizedTasks);
         } catch (error) {
@@ -209,7 +211,7 @@ export default function TasksPage() {
     };
 
     const openCreateDialog = () => {
-        setCurrentTask({ points: 10, status: 'pending', title: '', description: '', assignedTo: 'unassigned' });
+        setCurrentTask({ points: 10, status: 'pending', title: '', description: '', assignedTo: 'unassigned', repeatFrequency: 'none' });
         setIsEditing(false);
         setIsDialogOpen(true);
     };
@@ -267,6 +269,60 @@ export default function TasksPage() {
                 )}
             </div>
 
+            {isParent && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800/30">
+                    <h2 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-2">
+                        <Sparkles className="h-4 w-4" />
+                        Tạo nhanh nhiệm vụ hàng ngày
+                    </h2>
+                    <div className="flex flex-wrap gap-2">
+                        {[
+                            { title: 'Quét nhà', icon: <Brush className="h-4 w-4" />, points: 10, color: 'bg-amber-100 text-amber-700 hover:bg-amber-200' },
+                            { title: 'Lau nhà', icon: <Droplets className="h-4 w-4" />, points: 15, color: 'bg-blue-100 text-blue-700 hover:bg-blue-200' },
+                            { title: 'Rửa bát', icon: <Utensils className="h-4 w-4" />, points: 10, color: 'bg-green-100 text-green-700 hover:bg-green-200' },
+                            { title: 'Gấp quần áo', icon: <Shirt className="h-4 w-4" />, points: 10, color: 'bg-purple-100 text-purple-700 hover:bg-purple-200' },
+                            { title: 'Tưới cây', icon: <Leaf className="h-4 w-4" />, points: 5, color: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' },
+                            { title: 'Dọn đồ chơi', icon: <Plus className="h-4 w-4" />, points: 5, color: 'bg-pink-100 text-pink-700 hover:bg-pink-200' },
+                        ].map((q) => (
+                            <Button
+                                key={q.title}
+                                variant="secondary"
+                                size="sm"
+                                className={`flex items-center gap-2 border-none transition-all hover:scale-105 ${q.color}`}
+                                onClick={async () => {
+                                    try {
+                                        const payload = {
+                                            title: q.title,
+                                            points: q.points,
+                                            status: 'pending',
+                                            familyId: user?.familyId,
+                                            createdBy: user?.id,
+                                            assignedTo: 'unassigned',
+                                            repeatFrequency: 'daily' // Auto-set to daily for quick tasks
+                                        };
+                                        const res = await fetch('/api/tasks', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify(payload),
+                                        });
+                                        if (res.ok) {
+                                            toast({ title: 'Đã tạo nhanh', description: `Nhiệm vụ "${q.title}" đã được tạo.` });
+                                            fetchTasks();
+                                        }
+                                    } catch (e) {
+                                        toast({ title: 'Lỗi', description: 'Không thể tạo nhanh nhiệm vụ', variant: 'destructive' });
+                                    }
+                                }}
+                            >
+                                {q.icon}
+                                <span>{q.title}</span>
+                                <Badge variant="outline" className="ml-1 bg-white/50 border-none px-1 text-[10px]">{q.points}</Badge>
+                            </Button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {isLoading ? (
                 <div className="flex justify-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -298,7 +354,15 @@ export default function TasksPage() {
                                         {task.points}
                                     </div>
                                 </div>
-                                <CardTitle className="text-xl font-bold text-gray-800 dark:text-gray-100 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{task.title}</CardTitle>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <CardTitle className="text-xl font-bold text-gray-800 dark:text-gray-100 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{task.title}</CardTitle>
+                                    {task.repeatFrequency && task.repeatFrequency !== 'none' && (
+                                        <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0 border-none">
+                                            <Repeat className="h-3 w-3 mr-0.5" />
+                                            {task.repeatFrequency === 'daily' ? 'Hàng ngày' : 'Hàng tuần'}
+                                        </Badge>
+                                    )}
+                                </div>
                                 {task.description && (
                                     <CardDescription className="line-clamp-2 text-sm mt-2 text-gray-600 dark:text-gray-400 italic">"{task.description}"</CardDescription>
                                 )}
@@ -449,6 +513,25 @@ export default function TasksPage() {
                                             {member.name}
                                         </SelectItem>
                                     ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="repeatFrequency">Lặp lại</Label>
+                            <Select
+                                value={currentTask.repeatFrequency || 'none'}
+                                onValueChange={(value: any) => setCurrentTask({ ...currentTask, repeatFrequency: value })}
+                            >
+                                <SelectTrigger>
+                                    <div className="flex items-center gap-2">
+                                        <Repeat className="h-4 w-4" />
+                                        <SelectValue placeholder="Chọn tần suất" />
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">Không lặp lại</SelectItem>
+                                    <SelectItem value="daily">Hàng ngày</SelectItem>
+                                    <SelectItem value="weekly">Hàng tuần</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

@@ -30,6 +30,11 @@ const TaskSchema = new mongoose.Schema({
         enum: ['pending', 'in_progress', 'completed', 'approved'],
         default: 'pending',
     },
+    repeatFrequency: {
+        type: String,
+        enum: ['none', 'daily', 'weekly'],
+        default: 'none',
+    },
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

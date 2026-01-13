@@ -48,7 +48,7 @@ export default function LandingPage() {
 
       {/* Features Section */}
       <section className="py-20 bg-background container mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 className="text-3xl font-bold text-center mb-12">Cách FamPoint hoạt động</h2>
+        <h2 className="text-3xl font-bold text-center mb-12">Cách Family Rewards hoạt động</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
 
           <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-blue-50/50 dark:bg-slate-800/50">

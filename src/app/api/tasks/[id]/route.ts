@@ -37,6 +37,20 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
                     description: `Hoàn thành công việc: ${task.title}`,
                     relatedId: task._id
                 });
+
+                // Handle recurring task: create a new one for tomorrow/next time
+                if (task.repeatFrequency && task.repeatFrequency !== 'none') {
+                    await Task.create({
+                        title: task.title,
+                        description: task.description,
+                        points: task.points,
+                        familyId: task.familyId,
+                        createdBy: task.createdBy,
+                        repeatFrequency: task.repeatFrequency,
+                        status: 'pending',
+                        assignedTo: 'unassigned' // Reset assignments for the next instance
+                    });
+                }
             }
         }
 
