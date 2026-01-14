@@ -17,7 +17,7 @@ export type User = {
 interface AuthContextType {
     user: User | null;
     isLoading: boolean;
-    login: (userData: User, callbackUrl?: string) => void;
+    login: (userData: User, callbackUrl?: string, rememberMe?: boolean) => void;
     logout: () => void;
     refreshUser: () => Promise<void>;
     isAuthenticated: boolean;
@@ -32,20 +32,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
+        const expiry = localStorage.getItem('user_expiry');
+
         if (storedUser) {
-            try {
-                setUser(JSON.parse(storedUser));
-            } catch (error) {
-                console.error('Failed to parse user from local storage:', error);
+            if (expiry && Date.now() > parseInt(expiry)) {
                 localStorage.removeItem('user');
+                localStorage.removeItem('user_expiry');
+                setUser(null);
+            } else {
+                try {
+                    setUser(JSON.parse(storedUser));
+                } catch (error) {
+                    console.error('Failed to parse user from local storage:', error);
+                    localStorage.removeItem('user');
+                    localStorage.removeItem('user_expiry');
+                }
             }
         }
         setIsLoading(false);
     }, []);
 
-    const login = (userData: User, callbackUrl?: string) => {
+    const login = (userData: User, callbackUrl?: string, rememberMe: boolean = false) => {
         setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
+        if (rememberMe) {
+            const sixtyDaysInMs = 60 * 24 * 60 * 60 * 1000;
+            localStorage.setItem('user_expiry', (Date.now() + sixtyDaysInMs).toString());
+        } else {
+            localStorage.removeItem('user_expiry'); // Ensure no old expiry remains
+        }
         router.push(callbackUrl || '/dashboard');
     };
 

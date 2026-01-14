@@ -1,11 +1,28 @@
 'use client';
 
 import Link from 'next/link';
-import { CheckCircle, Gift, Heart, ArrowRight } from 'lucide-react';
+import * as React from 'react';
+import { CheckCircle, Gift, Heart, ArrowRight, Settings, LayoutDashboard, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useAuth } from '@/context/auth-context';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export default function LandingPage() {
+  const { user, logout, isAuthenticated } = useAuth();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       {/* Navbar / Header */}
@@ -15,12 +32,57 @@ export default function LandingPage() {
           <span>Family Rewards</span>
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/auth/login">
-            <Button variant="ghost">Đăng nhập</Button>
-          </Link>
-          <Link href="/auth/signup">
-            <Button>Đăng ký</Button>
-          </Link>
+          {mounted && isAuthenticated ? (
+            <>
+              <Link href="/dashboard">
+                <Button variant="ghost" className="flex items-center gap-2">
+                  <LayoutDashboard className="h-4 w-4" />
+                  <span className="hidden sm:inline">Bảng điều khiển</span>
+                </Button>
+              </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full">
+                    <Settings className="h-5 w-5 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">{user?.name}</p>
+                      <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <Link href="/profile">
+                    <DropdownMenuItem className="cursor-pointer">
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Hồ sơ cá nhân</span>
+                    </DropdownMenuItem>
+                  </Link>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30"
+                    onClick={() => logout()}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Đăng xuất</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          ) : mounted && !isAuthenticated ? (
+            <>
+              <Link href="/auth/login">
+                <Button variant="ghost">Đăng nhập</Button>
+              </Link>
+              <Link href="/auth/signup">
+                <Button>Đăng ký</Button>
+              </Link>
+            </>
+          ) : (
+            <div className="h-10 w-20 animate-pulse bg-muted rounded-md" /> // Placeholder while hydrating
+          )}
         </div>
       </header>
 
@@ -33,14 +95,14 @@ export default function LandingPage() {
           Biến những công việc nhà hàng ngày thành niềm vui. Giúp trẻ xây dựng thói quen tốt thông qua hệ thống tích điểm và đổi quà thú vị.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link href="/auth/signup">
+          <Link href={mounted && isAuthenticated ? "/dashboard" : "/auth/signup"}>
             <Button size="lg" className="w-full sm:w-auto text-lg h-12 px-8 rounded-full shadow-lg hover:shadow-xl transition-all">
-              Bắt đầu ngay <ArrowRight className="ml-2 h-5 w-5" />
+              {mounted && isAuthenticated ? 'Vào bảng điều khiển' : 'Bắt đầu ngay'} <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </Link>
-          <Link href="/auth/login">
+          <Link href={mounted && isAuthenticated ? "/dashboard" : "/auth/login"}>
             <Button variant="outline" size="lg" className="w-full sm:w-auto text-lg h-12 px-8 rounded-full">
-              Tôi quản lý gia đình
+              {mounted && isAuthenticated ? 'Xem công việc' : 'Tôi quản lý gia đình'}
             </Button>
           </Link>
         </div>

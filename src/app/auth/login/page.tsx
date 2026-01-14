@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -18,8 +18,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
 
 import { ArrowLeft } from 'lucide-react';
+import { useAuth } from '@/context/auth-context';
 
 const formSchema = z.object({
     familyName: z.string().min(1, {
@@ -31,11 +33,8 @@ const formSchema = z.object({
     password: z.string().min(1, {
         message: 'Vui lòng nhập mật khẩu.',
     }),
+    rememberMe: z.boolean().default(false),
 });
-
-import { useAuth } from '@/context/auth-context';
-
-import { useSearchParams } from 'next/navigation';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -43,6 +42,13 @@ export default function LoginPage() {
     const callbackUrl = searchParams.get('callbackUrl') || undefined;
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const { login, isAuthenticated } = useAuth();
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            router.push('/dashboard');
+        }
+    }, [isAuthenticated, router]);
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -50,10 +56,9 @@ export default function LoginPage() {
             familyName: '',
             email: '',
             password: '',
+            rememberMe: false,
         },
     });
-
-    const { login } = useAuth();
 
     async function onSubmit(values: z.infer<typeof formSchema>) {
         setLoading(true);
@@ -79,7 +84,7 @@ export default function LoginPage() {
             }
 
             // Login using context
-            login(data.user, callbackUrl);
+            login(data.user, callbackUrl, values.rememberMe);
 
         } catch (err: any) {
             console.error(err);
@@ -150,6 +155,23 @@ export default function LoginPage() {
                                             <Input type="password" placeholder="******" {...field} />
                                         </FormControl>
                                         <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="rememberMe"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center space-x-2 space-y-0 py-2">
+                                        <FormControl>
+                                            <Checkbox
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                            />
+                                        </FormControl>
+                                        <FormLabel className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+                                            Ghi nhớ đăng nhập (60 ngày)
+                                        </FormLabel>
                                     </FormItem>
                                 )}
                             />

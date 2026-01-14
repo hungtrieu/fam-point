@@ -27,6 +27,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Task {
     _id: string;
@@ -242,6 +243,100 @@ export default function TasksPage() {
         }
     };
 
+    const renderTaskCard = (task: Task) => (
+        <Card key={task._id} className={`overflow-hidden border-none shadow-md hover:shadow-xl transition-all duration-300 group bg-card/50 backdrop-blur-sm border-t-4 ${task.status === 'approved' ? 'border-t-purple-400' : 'border-t-blue-400'}`}>
+            <CardHeader className={`${task.status === 'approved' ? 'bg-gradient-to-br from-purple-50/50 to-pink-50/50 dark:from-purple-900/20 dark:to-pink-900/20' : 'bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-900/20 dark:to-indigo-900/20'} p-6`}>
+                <div className="flex justify-between items-start mb-2">
+                    <Badge variant="outline" className={`px-3 py-1 bg-white/80 dark:bg-black/20 border-none font-bold ${statusColors[task.status as keyof typeof statusColors] || ''}`}>
+                        {getStatusLabel(task.status)}
+                    </Badge>
+                    <div className="flex items-center text-amber-600 font-extrabold bg-white/80 dark:bg-black/20 px-3 py-1 rounded-full text-sm shadow-sm">
+                        <Coins className="h-4 w-4 mr-1" />
+                        {task.points}
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 mb-2">
+                    <CardTitle className={`text-xl font-bold text-gray-800 dark:text-gray-100 ${task.status === 'approved' ? 'group-hover:text-purple-600' : 'group-hover:text-blue-600'} transition-colors uppercase tracking-tight`}>{task.title}</CardTitle>
+                    {task.repeatFrequency && task.repeatFrequency !== 'none' && (
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0 border-none">
+                            <Repeat className="h-3 w-3 mr-0.5" />
+                            {task.repeatFrequency === 'daily' ? 'Hàng ngày' : 'Hàng tuần'}
+                        </Badge>
+                    )}
+                </div>
+                {task.description && (
+                    <CardDescription className="line-clamp-2 text-sm mt-2 text-gray-600 dark:text-gray-400 italic">"{task.description}"</CardDescription>
+                )}
+            </CardHeader>
+            <CardContent className="p-6">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">Giao cho:</span>
+                    <Badge variant="secondary" className={`border-none ${task.assignedTo === 'unassigned' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
+                        {task.assignedTo === 'unassigned' ? 'Đang chờ con nhận việc' : task.assignedTo}
+                    </Badge>
+                </div>
+            </CardContent>
+            <CardFooter className="bg-muted/30 p-4 flex justify-between items-center">
+                <div className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {new Date(task.createdAt).toLocaleDateString('vi-VN')}
+                </div>
+                {!isParent && task.assignedTo === 'unassigned' && (
+                    <Button
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700 text-white font-bold"
+                        onClick={() => handleClaimTask(task)}
+                    >
+                        <Hand className="mr-2 h-4 w-4" /> Nhận việc
+                    </Button>
+                )}
+                {!isParent && task.assignedToId === user?.id && task.status === 'pending' && (
+                    <Button
+                        size="sm"
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                        onClick={() => handleUpdateStatus(task, 'in_progress')}
+                    >
+                        <Play className="mr-2 h-4 w-4" /> Bắt đầu làm
+                    </Button>
+                )}
+                {!isParent && task.assignedToId === user?.id && task.status === 'in_progress' && (
+                    <Button
+                        size="sm"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                        onClick={() => handleUpdateStatus(task, 'completed')}
+                    >
+                        <Check className="mr-2 h-4 w-4" /> Hoàn thành
+                    </Button>
+                )}
+                {!isParent && task.assignedToId === user?.id && task.status === 'completed' && (
+                    <Badge className="bg-green-100 text-green-700 border-none">Đang chờ duyệt</Badge>
+                )}
+                {!isParent && task.assignedToId === user?.id && task.status === 'approved' && (
+                    <Badge className="bg-purple-100 text-purple-700 border-none">Đã hoàn thành</Badge>
+                )}
+                {isParent && (
+                    <div className="flex gap-2">
+                        {task.status === 'completed' && (
+                            <Button
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700 text-white font-bold"
+                                onClick={() => handleUpdateStatus(task, 'approved')}
+                            >
+                                <CheckCircle2 className="mr-2 h-4 w-4" /> Duyệt
+                            </Button>
+                        )}
+                        <Button variant="ghost" size="sm" className="hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400" onClick={() => openEditDialog(task)}>
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400" onClick={() => handleDelete(task._id)}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                )}
+            </CardFooter>
+        </Card>
+    );
+
     if (!mounted) {
         return (
             <div className="container mx-auto py-10 space-y-6 px-4 md:px-6">
@@ -251,6 +346,36 @@ export default function TasksPage() {
             </div>
         );
     }
+
+    const sortedActiveTasks = [...tasks]
+        .filter(t => t.status !== 'approved')
+        .sort((a, b) => {
+            if (isParent) {
+                // Parents: completed (waiting approval) first
+                if (a.status === 'completed' && b.status !== 'completed') return -1;
+                if (a.status !== 'completed' && b.status === 'completed') return 1;
+                return 0;
+            } else {
+                // Children sorting
+                // 1. Assigned to me
+                const aIsMe = a.assignedToId === user?.id;
+                const bIsMe = b.assignedToId === user?.id;
+                if (aIsMe && !bIsMe) return -1;
+                if (!aIsMe && bIsMe) return 1;
+
+                // 2. Unassigned
+                const aUnassigned = a.assignedTo === 'unassigned';
+                const bUnassigned = b.assignedTo === 'unassigned';
+                if (aUnassigned && !bUnassigned) return -1;
+                if (!aUnassigned && bUnassigned) return 1;
+
+                // 3. Status priority for others: in_progress > pending > completed
+                const statusPriority = { in_progress: 1, pending: 2, completed: 3 };
+                const aPrio = statusPriority[a.status as keyof typeof statusPriority] || 99;
+                const bPrio = statusPriority[b.status as keyof typeof statusPriority] || 99;
+                return aPrio - bPrio;
+            }
+        });
 
     return (
         <div className="container mx-auto py-10 space-y-6 px-4 md:px-6">
@@ -341,101 +466,58 @@ export default function TasksPage() {
                     )}
                 </div>
             ) : (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {tasks.map((task) => (
-                        <Card key={task._id} className="overflow-hidden border-none shadow-md hover:shadow-xl transition-all duration-300 group bg-card/50 backdrop-blur-sm border-t-4 border-t-blue-400">
-                            <CardHeader className="bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6">
-                                <div className="flex justify-between items-start mb-2">
-                                    <Badge variant="outline" className={`px-3 py-1 bg-white/80 dark:bg-black/20 border-none font-bold ${statusColors[task.status] || ''}`}>
-                                        {getStatusLabel(task.status)}
-                                    </Badge>
-                                    <div className="flex items-center text-amber-600 font-extrabold bg-white/80 dark:bg-black/20 px-3 py-1 rounded-full text-sm shadow-sm">
-                                        <Coins className="h-4 w-4 mr-1" />
-                                        {task.points}
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <CardTitle className="text-xl font-bold text-gray-800 dark:text-gray-100 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{task.title}</CardTitle>
-                                    {task.repeatFrequency && task.repeatFrequency !== 'none' && (
-                                        <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0 border-none">
-                                            <Repeat className="h-3 w-3 mr-0.5" />
-                                            {task.repeatFrequency === 'daily' ? 'Hàng ngày' : 'Hàng tuần'}
-                                        </Badge>
-                                    )}
-                                </div>
-                                {task.description && (
-                                    <CardDescription className="line-clamp-2 text-sm mt-2 text-gray-600 dark:text-gray-400 italic">"{task.description}"</CardDescription>
-                                )}
-                            </CardHeader>
-                            <CardContent className="p-6">
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <span className="font-semibold text-gray-700 dark:text-gray-300">Giao cho:</span>
-                                    <Badge variant="secondary" className={`border-none ${task.assignedTo === 'unassigned' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
-                                        {task.assignedTo === 'unassigned' ? 'Đang chờ con nhận việc' : task.assignedTo}
-                                    </Badge>
-                                </div>
-                            </CardContent>
-                            <CardFooter className="bg-muted/30 p-4 flex justify-between items-center">
-                                <div className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                                    <Clock className="h-3 w-3" />
-                                    {new Date(task.createdAt).toLocaleDateString('vi-VN')}
-                                </div>
-                                {!isParent && task.assignedTo === 'unassigned' && (
-                                    <Button
-                                        size="sm"
-                                        className="bg-green-600 hover:bg-green-700 text-white font-bold"
-                                        onClick={() => handleClaimTask(task)}
-                                    >
-                                        <Hand className="mr-2 h-4 w-4" /> Nhận việc
-                                    </Button>
-                                )}
-                                {!isParent && task.assignedToId === user?.id && task.status === 'pending' && (
-                                    <Button
-                                        size="sm"
-                                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
-                                        onClick={() => handleUpdateStatus(task, 'in_progress')}
-                                    >
-                                        <Play className="mr-2 h-4 w-4" /> Bắt đầu làm
-                                    </Button>
-                                )}
-                                {!isParent && task.assignedToId === user?.id && task.status === 'in_progress' && (
-                                    <Button
-                                        size="sm"
-                                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
-                                        onClick={() => handleUpdateStatus(task, 'completed')}
-                                    >
-                                        <Check className="mr-2 h-4 w-4" /> Hoàn thành
-                                    </Button>
-                                )}
-                                {!isParent && task.assignedToId === user?.id && task.status === 'completed' && (
-                                    <Badge className="bg-green-100 text-green-700 border-none">Đang chờ duyệt</Badge>
-                                )}
-                                {!isParent && task.assignedToId === user?.id && task.status === 'approved' && (
-                                    <Badge className="bg-purple-100 text-purple-700 border-none">Đã hoàn thành</Badge>
-                                )}
-                                {isParent && (
-                                    <div className="flex gap-2">
-                                        {task.status === 'completed' && (
-                                            <Button
-                                                size="sm"
-                                                className="bg-green-600 hover:bg-green-700 text-white font-bold"
-                                                onClick={() => handleUpdateStatus(task, 'approved')}
-                                            >
-                                                <CheckCircle2 className="mr-2 h-4 w-4" /> Duyệt
-                                            </Button>
-                                        )}
-                                        <Button variant="ghost" size="sm" className="hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400" onClick={() => openEditDialog(task)}>
-                                            <Pencil className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="sm" className="hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400" onClick={() => handleDelete(task._id)}>
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                )}
-                            </CardFooter>
-                        </Card>
-                    ))}
-                </div>
+                <Tabs defaultValue="active" className="w-full">
+                    <TabsList className="bg-slate-100/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-800 p-1 mb-8 w-fit">
+                        <TabsTrigger
+                            value="active"
+                            className="px-6 py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all duration-300 gap-2"
+                        >
+                            <Clock className="h-4 w-4" />
+                            <span>Đang thực hiện</span>
+                            <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-700 border-none px-1.5 py-0 text-[10px]">
+                                {tasks.filter(t => t.status !== 'approved').length}
+                            </Badge>
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="approved"
+                            className="px-6 py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:text-purple-600 data-[state=active]:shadow-sm transition-all duration-300 gap-2"
+                        >
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span>Đã duyệt</span>
+                            <Badge variant="secondary" className="ml-2 bg-purple-100 text-purple-700 border-none px-1.5 py-0 text-[10px]">
+                                {tasks.filter(t => t.status === 'approved').length}
+                            </Badge>
+                        </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="active" className="mt-0 focus-visible:outline-none">
+                        {sortedActiveTasks.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-20 text-center bg-muted/10 rounded-2xl border-2 border-dashed border-muted/50">
+                                <Clock className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                                <h3 className="text-xl font-medium text-muted-foreground">Không có công việc nào đang chờ</h3>
+                                <p className="text-sm text-muted-foreground mt-1 text-balance">Mọi thứ đã được giải quyết xong hoặc đang chờ được duyệt.</p>
+                            </div>
+                        ) : (
+                            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                {sortedActiveTasks.map((task) => renderTaskCard(task))}
+                            </div>
+                        )}
+                    </TabsContent>
+
+                    <TabsContent value="approved" className="mt-0 focus-visible:outline-none">
+                        {tasks.filter(t => t.status === 'approved').length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-20 text-center bg-muted/10 rounded-2xl border-2 border-dashed border-muted/50">
+                                <CheckCircle2 className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                                <h3 className="text-xl font-medium text-muted-foreground">Chưa có công việc nào được duyệt</h3>
+                                <p className="text-sm text-muted-foreground mt-1 text-balance">Hoàn thành công việc để nhận điểm thưởng nhé!</p>
+                            </div>
+                        ) : (
+                            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                {tasks.filter(t => t.status === 'approved').map((task) => renderTaskCard(task))}
+                            </div>
+                        )}
+                    </TabsContent>
+                </Tabs>
             )}
 
 
