@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
+import { useSearchParams } from 'next/navigation';
 import {
   History,
   ArrowUpCircle,
@@ -9,7 +10,8 @@ import {
   Calendar,
   Coins,
   Search,
-  Filter
+  Filter,
+  ArrowLeft
 } from 'lucide-react';
 import {
   Card,
@@ -20,6 +22,8 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 interface HistoryItem {
   _id: string;
@@ -29,31 +33,53 @@ interface HistoryItem {
   createdAt: string;
 }
 
+interface MemberInfo {
+  _id: string;
+  name: string;
+  points: number;
+}
+
 export default function HistoryPage() {
   const { user, refreshUser } = useAuth();
+  const searchParams = useSearchParams();
+  const viewingUserId = searchParams.get('userId');
+
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [memberInfo, setMemberInfo] = useState<MemberInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [mounted, setMounted] = useState(false);
 
+  const targetUserId = viewingUserId || user?.id;
+  const isViewingOther = !!viewingUserId && viewingUserId !== user?.id;
+
   useEffect(() => {
     setMounted(true);
-    if (user?.id) {
+    if (targetUserId) {
       fetchHistory();
     }
-  }, [user?.id]);
+  }, [targetUserId]);
 
   const fetchHistory = async () => {
-    if (!user?.id) return;
+    if (!targetUserId) return;
     setIsLoading(true);
     try {
       // Refresh current user points
       refreshUser();
 
-      const res = await fetch(`/api/history?userId=${user?.id}`);
+      const res = await fetch(`/api/history?userId=${targetUserId}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
       setHistory(data);
+
+      // If viewing another member, fetch their info
+      if (isViewingOther) {
+        const memberRes = await fetch(`/api/members/${viewingUserId}`);
+        if (memberRes.ok) {
+          const memberData = await memberRes.json();
+          setMemberInfo(memberData);
+        }
+      }
     } catch (error) {
       console.error('Failed to load history:', error);
     } finally {
@@ -64,6 +90,9 @@ export default function HistoryPage() {
   const filteredHistory = history.filter(item =>
     item.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const displayName = isViewingOther ? memberInfo?.name : user?.name;
+  const displayPoints = isViewingOther ? memberInfo?.points : user?.points;
 
   if (!mounted) {
     return (
@@ -79,8 +108,24 @@ export default function HistoryPage() {
     <div className="container mx-auto py-10 space-y-6 px-4 md:px-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">Lịch sử điểm</h1>
-          <p className="text-muted-foreground mt-2">Theo dõi các hoạt động nhận điểm và đổi quà của bạn.</p>
+          <div className="flex items-center gap-3 mb-2">
+            {isViewingOther && (
+              <Link href="/members">
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <ArrowLeft className="h-4 w-4" /> Quay lại
+                </Button>
+              </Link>
+            )}
+            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+              Lịch sử điểm {isViewingOther && `- ${displayName}`}
+            </h1>
+          </div>
+          <p className="text-muted-foreground mt-2">
+            {isViewingOther
+              ? `Theo dõi các hoạt động nhận điểm và đổi quà của ${displayName}.`
+              : 'Theo dõi các hoạt động nhận điểm và đổi quà của bạn.'
+            }
+          </p>
         </div>
         <div className="flex items-center gap-3 bg-white dark:bg-slate-900 px-6 py-3 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
           <div className="bg-amber-100 dark:bg-amber-900/30 p-2 rounded-full">
@@ -88,7 +133,7 @@ export default function HistoryPage() {
           </div>
           <div>
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Tổng điểm hiện có</p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white">{user?.points || 0}</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-white">{displayPoints || 0}</p>
           </div>
         </div>
       </div>
@@ -119,7 +164,10 @@ export default function HistoryPage() {
           </div>
           <h3 className="text-lg font-semibold">Chưa có lịch sử điểm</h3>
           <p className="text-muted-foreground max-w-sm mt-2">
-            Hãy bắt đầu hoàn thành công việc để nhận những điểm số đầu tiên!
+            {isViewingOther
+              ? `${displayName} chưa có hoạt động nào.`
+              : 'Hãy bắt đầu hoàn thành công việc để nhận những điểm số đầu tiên!'
+            }
           </p>
         </div>
       ) : (

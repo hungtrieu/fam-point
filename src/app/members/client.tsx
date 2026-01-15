@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Edit, Trash2, Copy, RefreshCw, User as UserIcon, Key } from 'lucide-react';
+import { Plus, Edit, Trash2, Copy, RefreshCw, User as UserIcon, Key, History, MoreVertical } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -27,6 +27,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+    DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 interface Child {
     _id: string;
@@ -218,18 +225,45 @@ export default function ChildrenClient({ initialData }: ChildrenClientProps) {
                                         </Badge>
                                     </div>
                                 </CardContent>
-                                <CardFooter className="bg-muted/30 p-4 flex justify-end gap-2">
-                                    <Button variant="ghost" size="sm" onClick={() => { setSelectedChild(child); setIsResetPassOpen(true); }} className="hover:bg-yellow-100 dark:hover:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400">
-                                        <Key className="h-4 w-4 mr-1" /> MK
+                                <CardFooter className="bg-muted/30 p-4 flex justify-between items-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => router.push(`/history?userId=${child._id}`)}
+                                        className="flex-1 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800"
+                                    >
+                                        <History className="h-4 w-4 mr-2" /> Lịch sử
                                     </Button>
-                                    <Button variant="ghost" size="sm" onClick={() => { setSelectedChild(child); setIsEditOpen(true); }} className="hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400">
-                                        <Edit className="h-4 w-4 mr-1" /> Sửa
-                                    </Button>
-                                    {user?.role === 'parent' && (
-                                        <Button variant="ghost" size="sm" onClick={() => handleDelete(child._id)} className="hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400">
-                                            <Trash2 className="h-4 w-4 mr-1" /> Xóa
-                                        </Button>
-                                    )}
+
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-9 w-9">
+                                                <MoreVertical className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onClick={() => { setSelectedChild(child); setIsResetPassOpen(true); }}>
+                                                <Key className="h-4 w-4 mr-2" />
+                                                Đổi mật khẩu
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => { setSelectedChild(child); setIsEditOpen(true); }}>
+                                                <Edit className="h-4 w-4 mr-2" />
+                                                Chỉnh sửa
+                                            </DropdownMenuItem>
+                                            {user?.role === 'parent' && (
+                                                <>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                        onClick={() => handleDelete(child._id)}
+                                                        className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30"
+                                                    >
+                                                        <Trash2 className="h-4 w-4 mr-2" />
+                                                        Xóa thành viên
+                                                    </DropdownMenuItem>
+                                                </>
+                                            )}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </CardFooter>
                             </Card>
                         ))}

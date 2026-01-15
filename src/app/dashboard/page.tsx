@@ -18,7 +18,7 @@ import {
   ShoppingBag
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getChildren } from '@/app/members/actions';
+import { getChildren, getLeaderboard } from '@/app/members/actions';
 import {
   Card,
   CardContent,
@@ -29,6 +29,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+
+interface LeaderboardMember {
+  id: string;
+  name: string;
+  role: string;
+  avatar?: string;
+  currentPoints: number;
+  totalEarned: number;
+  totalSpent: number;
+}
 
 interface Task {
   _id: string;
@@ -57,6 +67,7 @@ export default function DashboardPage() {
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [memberCount, setMemberCount] = useState(0);
   const [spentPoints, setSpentPoints] = useState(0);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -73,10 +84,11 @@ export default function DashboardPage() {
 
     setIsLoading(true);
     try {
-      const [tasksRes, rewardsRes, membersRes] = await Promise.all([
+      const [tasksRes, rewardsRes, membersRes, leaderboardRes] = await Promise.all([
         fetch(`/api/tasks?familyId=${user.familyId}`),
         fetch(`/api/rewards?familyId=${user.familyId}`),
-        getChildren(user.familyId)
+        getChildren(user.familyId),
+        getLeaderboard(user.familyId)
       ]);
 
       if (tasksRes.ok) {
@@ -90,6 +102,10 @@ export default function DashboardPage() {
 
       if (membersRes.success) {
         setMemberCount(membersRes.data.length);
+      }
+
+      if (leaderboardRes.success) {
+        setLeaderboard(leaderboardRes.data || []);
       }
 
       // Fetch points spent for children
@@ -195,6 +211,57 @@ export default function DashboardPage() {
         <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-blue-400/20 rounded-full blur-3xl"></div>
       </div>
 
+      {/* Leaderboard Section - High Priority */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+            <Award className="h-6 w-6 text-amber-500" /> Thành viên năng nổ
+          </h2>
+          {leaderboard.length > 4 && (
+            <p className="text-xs text-muted-foreground italic">Top 4 / {leaderboard.length} thành viên</p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {leaderboard.slice(0, 4).map((member, idx) => (
+            <Card key={member.id} className={`border-none shadow-md overflow-hidden bg-white/50 backdrop-blur-sm transition-all hover:shadow-lg ${idx === 0 ? 'ring-2 ring-amber-400' : ''
+              }`}>
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="relative">
+                  <div className={`h-12 w-12 rounded-full flex items-center justify-center font-bold text-lg ${idx === 0 ? 'bg-amber-100 text-amber-700' :
+                    idx === 1 ? 'bg-slate-100 text-slate-700' :
+                      idx === 2 ? 'bg-orange-50 text-orange-700' : 'bg-slate-50 text-slate-500'
+                    }`}>
+                    {idx + 1}
+                  </div>
+                  {idx === 0 && <Star className="absolute -top-1 -right-1 h-4 w-4 fill-amber-400 text-amber-400" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-slate-900 truncate">{member.name}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase">{member.role === 'parent' ? 'Phụ huynh' : 'Con cái'}</p>
+                </div>
+                <div className="text-right">
+                  <div className="flex items-center justify-end gap-1 text-green-600 font-bold">
+                    <TrendingUp className="h-3 w-3" />
+                    <span className="text-sm">{member.totalEarned}</span>
+                  </div>
+                  <div className="flex items-center justify-end gap-1 text-rose-500 text-xs">
+                    <ShoppingBag className="h-2.5 w-2.5" />
+                    <span>{member.totalSpent}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          {leaderboard.length === 0 && !isLoading && (
+            <div className="col-span-full py-8 text-center bg-slate-50/50 rounded-xl border border-dashed text-muted-foreground">
+              <Users className="h-8 w-8 mx-auto mb-2 opacity-20" />
+              <p className="text-sm font-medium">Chưa có dữ liệu thành viên.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Stats Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Link href="/tasks" className="block transition-transform hover:scale-105 active:scale-95">
@@ -282,7 +349,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Main Activity Feed */}
+      {/* Main Activity Feed - Full Width */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">

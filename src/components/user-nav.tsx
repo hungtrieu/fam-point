@@ -27,7 +27,8 @@ export function UserNav() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+        <Button variant="ghost" className="relative h-9 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-2 px-3">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300 hidden sm:inline-block">{user.name}</span>
           <Settings className="h-5 w-5 text-slate-600 dark:text-slate-400" />
         </Button>
       </DropdownMenuTrigger>

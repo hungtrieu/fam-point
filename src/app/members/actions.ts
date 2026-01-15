@@ -2,7 +2,9 @@
 
 import dbConnect from '@/lib/db';
 import User from '@/models/User';
+import PointHistory from '@/models/PointHistory';
 import bcrypt from 'bcryptjs';
+import mongoose from 'mongoose';
 import { revalidatePath } from 'next/cache';
 
 export async function getChildren(familyId: string) {
@@ -123,5 +125,64 @@ export async function resetChildPassword(id: string, newPassword?: string) {
     } catch (error) {
         console.error('Failed to reset password:', error);
         return { success: false, error: 'Failed to reset password' };
+    }
+}
+
+export async function getLeaderboard(familyId: string) {
+    await dbConnect();
+    try {
+        if (!familyId) {
+            return { success: true, data: [] };
+        }
+
+        // Get all members in family
+        const members = await User.find({ familyId });
+
+        // Aggregate point history for this family
+        const stats = await PointHistory.aggregate([
+            { $match: { familyId: new mongoose.Types.ObjectId(familyId) } },
+            {
+                $group: {
+                    _id: "$userId",
+                    totalEarned: {
+                        $sum: { $cond: [{ $eq: ["$type", "earn"] }, "$amount", 0] }
+                    },
+                    totalSpent: {
+                        $sum: { $cond: [{ $eq: ["$type", "spend"] }, "$amount", 0] }
+                    }
+                }
+            }
+        ]);
+
+        const statsMap = stats.reduce((acc: any, curr: any) => {
+            acc[curr._id.toString()] = curr;
+            return acc;
+        }, {});
+
+        const leaderboard = members.map(member => {
+            const memberStats = statsMap[member._id.toString()] || { totalEarned: 0, totalSpent: 0 };
+            return {
+                id: member._id.toString(),
+                name: member.name,
+                role: member.role,
+                avatar: member.avatar,
+                currentPoints: member.points || 0,
+                totalEarned: memberStats.totalEarned,
+                totalSpent: memberStats.totalSpent
+            };
+        });
+
+        // Sort by totalEarned DESC, then totalSpent DESC
+        leaderboard.sort((a, b) => {
+            if (b.totalEarned !== a.totalEarned) {
+                return b.totalEarned - a.totalEarned;
+            }
+            return b.totalSpent - a.totalSpent;
+        });
+
+        return { success: true, data: leaderboard };
+    } catch (error) {
+        console.error('Failed to fetch leaderboard:', error);
+        return { success: false, error: 'Failed to fetch leaderboard' };
     }
 }
