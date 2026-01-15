@@ -224,34 +224,36 @@ export default function DashboardPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {leaderboard.slice(0, 4).map((member, idx) => (
-            <Card key={member.id} className={`border-none shadow-md overflow-hidden bg-white/50 backdrop-blur-sm transition-all hover:shadow-lg ${idx === 0 ? 'ring-2 ring-amber-400' : ''
-              }`}>
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="relative">
-                  <div className={`h-12 w-12 rounded-full flex items-center justify-center font-bold text-lg ${idx === 0 ? 'bg-amber-100 text-amber-700' :
-                    idx === 1 ? 'bg-slate-100 text-slate-700' :
-                      idx === 2 ? 'bg-orange-50 text-orange-700' : 'bg-slate-50 text-slate-500'
-                    }`}>
-                    {idx + 1}
+            <Link key={member.id} href={`/history?userId=${member.id}`} className="block transition-transform hover:scale-[1.02] active:scale-[0.98]">
+              <Card className={`border-none shadow-md h-full overflow-hidden bg-white/50 backdrop-blur-sm transition-all hover:shadow-lg ${idx === 0 ? 'ring-2 ring-amber-400' : ''
+                }`}>
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className="relative">
+                    <div className={`h-12 w-12 rounded-full flex items-center justify-center font-bold text-lg ${idx === 0 ? 'bg-amber-100 text-amber-700' :
+                      idx === 1 ? 'bg-slate-100 text-slate-700' :
+                        idx === 2 ? 'bg-orange-50 text-orange-700' : 'bg-slate-50 text-slate-500'
+                      }`}>
+                      {idx + 1}
+                    </div>
+                    {idx === 0 && <Star className="absolute -top-1 -right-1 h-4 w-4 fill-amber-400 text-amber-400" />}
                   </div>
-                  {idx === 0 && <Star className="absolute -top-1 -right-1 h-4 w-4 fill-amber-400 text-amber-400" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-slate-900 truncate">{member.name}</p>
-                  <p className="text-[10px] text-muted-foreground uppercase">{member.role === 'parent' ? 'Phụ huynh' : 'Con cái'}</p>
-                </div>
-                <div className="text-right">
-                  <div className="flex items-center justify-end gap-1 text-green-600 font-bold">
-                    <TrendingUp className="h-3 w-3" />
-                    <span className="text-sm">{member.totalEarned}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-slate-900 truncate">{member.name}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase">{member.role === 'parent' ? 'Phụ huynh' : 'Con cái'}</p>
                   </div>
-                  <div className="flex items-center justify-end gap-1 text-rose-500 text-xs">
-                    <ShoppingBag className="h-2.5 w-2.5" />
-                    <span>{member.totalSpent}</span>
+                  <div className="text-right">
+                    <div className="flex items-center justify-end gap-1 text-green-600 font-bold">
+                      <TrendingUp className="h-3 w-3" />
+                      <span className="text-sm">{member.totalEarned}</span>
+                    </div>
+                    <div className="flex items-center justify-end gap-1 text-rose-500 text-xs">
+                      <ShoppingBag className="h-2.5 w-2.5" />
+                      <span>{member.totalSpent}</span>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
           {leaderboard.length === 0 && !isLoading && (
             <div className="col-span-full py-8 text-center bg-slate-50/50 rounded-xl border border-dashed text-muted-foreground">
