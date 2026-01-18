@@ -39,6 +39,7 @@ interface Task {
     status: 'pending' | 'in_progress' | 'completed' | 'approved';
     repeatFrequency: 'none' | 'daily' | 'weekly';
     createdAt: string;
+    createdBy?: string | { _id: string; name: string };
 }
 
 import { useAuth } from '@/context/auth-context';
@@ -81,7 +82,8 @@ export default function TasksPage() {
             const sanitizedTasks = data.map((t: any) => ({
                 ...t,
                 assignedTo: t.assignedTo || 'unassigned',
-                assignedToId: typeof t.assignedToId === 'object' ? t.assignedToId?._id : t.assignedToId
+                assignedToId: typeof t.assignedToId === 'object' ? t.assignedToId?._id : t.assignedToId,
+                createdBy: typeof t.createdBy === 'object' ? t.createdBy?._id : t.createdBy
             }));
             setTasks(sanitizedTasks);
         } catch (error) {
@@ -119,7 +121,8 @@ export default function TasksPage() {
                 assignedTo: currentTask.assignedTo === 'unassigned' ? '' : currentTask.assignedTo,
                 assignedToId: currentTask.assignedTo === 'unassigned' ? null : selectedMember?._id,
                 familyId: user?.familyId,
-                createdBy: user?.id
+                createdBy: isEditing ? (typeof currentTask.createdBy === 'object' ? (currentTask.createdBy as any)?._id : currentTask.createdBy) : user?.id,
+                userId: user?.id // Add userId for role verification in API
             };
 
             console.log('Task Submission Payload:', payload);
@@ -155,7 +158,8 @@ export default function TasksPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     assignedTo: user.name,
-                    assignedToId: user.id
+                    assignedToId: user.id,
+                    userId: user.id
                 }),
             });
 
@@ -180,7 +184,10 @@ export default function TasksPage() {
             const res = await fetch(`/api/tasks/${task._id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus }),
+                body: JSON.stringify({
+                    status: newStatus,
+                    userId: user?.id
+                }),
             });
 
             if (!res.ok) throw new Error('Failed to update status');
@@ -202,12 +209,15 @@ export default function TasksPage() {
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this task?')) return;
         try {
-            const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error('Delete failed');
+            const res = await fetch(`/api/tasks/${id}?userId=${user?.id}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Delete failed');
+            }
             toast({ title: 'Success', description: 'Task deleted' });
             fetchTasks();
-        } catch (error) {
-            toast({ title: 'Error', description: 'Failed to delete task', variant: 'destructive' });
+        } catch (error: any) {
+            toast({ title: 'Error', description: error.message || 'Failed to delete task', variant: 'destructive' });
         }
     };
 
@@ -314,7 +324,7 @@ export default function TasksPage() {
                 {!isParent && task.assignedToId === user?.id && task.status === 'approved' && (
                     <Badge className="bg-purple-100 text-purple-700 border-none">Đã hoàn thành</Badge>
                 )}
-                {isParent && (
+                {(isParent || task.createdBy === user?.id) && (
                     <div className="flex gap-2">
                         {task.status === 'completed' && (
                             <Button
@@ -325,10 +335,22 @@ export default function TasksPage() {
                                 <CheckCircle2 className="mr-2 h-4 w-4" /> Duyệt
                             </Button>
                         )}
-                        <Button variant="ghost" size="sm" className="hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400" onClick={() => openEditDialog(task)}>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400"
+                            onClick={() => openEditDialog(task)}
+                            disabled={!isParent && task.status === 'approved'}
+                        >
                             <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400" onClick={() => handleDelete(task._id)}>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400"
+                            onClick={() => handleDelete(task._id)}
+                            disabled={!isParent && task.status === 'approved'}
+                        >
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     </div>
@@ -386,12 +408,10 @@ export default function TasksPage() {
                         {isParent ? 'Quản lý và giao việc cho con cái.' : 'Danh sách công việc của bạn.'}
                     </p>
                 </div>
-                {isParent && (
-                    <Button onClick={openCreateDialog} className="shadow-lg transition-all hover:scale-105 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 border-none shrink-0">
-                        <Plus className="h-4 w-4 md:mr-2" />
-                        <span className="hidden md:inline">Thêm công việc</span>
-                    </Button>
-                )}
+                <Button onClick={openCreateDialog} className="shadow-lg transition-all hover:scale-105 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 border-none shrink-0">
+                    <Plus className="h-4 w-4 md:mr-2" />
+                    <span className="hidden md:inline">Thêm công việc</span>
+                </Button>
             </div>
 
             {isParent && (
@@ -574,7 +594,7 @@ export default function TasksPage() {
                                         <SelectItem value="pending">Chờ làm</SelectItem>
                                         <SelectItem value="in_progress">Đang làm</SelectItem>
                                         <SelectItem value="completed">Đã xong</SelectItem>
-                                        <SelectItem value="approved">Đã duyệt</SelectItem>
+                                        {isParent && <SelectItem value="approved">Đã duyệt</SelectItem>}
                                     </SelectContent>
                                 </Select>
                             </div>

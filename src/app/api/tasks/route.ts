@@ -29,6 +29,15 @@ export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
         console.log('API POST Task Body:', body);
+
+        // Check if the user creating the task is a parent
+        if (body.createdBy) {
+            const creator = await User.findById(body.createdBy);
+            if (creator?.role !== 'parent' && body.status === 'approved') {
+                return NextResponse.json({ error: 'Only parents can approve tasks' }, { status: 403 });
+            }
+        }
+
         const task = await Task.create(body);
 
         // If task is created as approved, add points to user
