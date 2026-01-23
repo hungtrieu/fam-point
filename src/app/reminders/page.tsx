@@ -82,9 +82,7 @@ export default function RemindersPage() {
         setMounted(true);
         if (user?.familyId) {
             fetchReminders();
-            if (isParent) {
-                fetchMembers();
-            }
+            fetchMembers();
         }
     }, [user?.familyId, user?.role]);
 
@@ -111,8 +109,9 @@ export default function RemindersPage() {
         if (!user?.familyId) return;
         const result = await getChildren(user.familyId);
         if (result.success) {
-            const filterChildren = result.data.filter((m: Member) => m.role === 'child');
-            setChildrenMembers(filterChildren);
+            // Filter out current user from the list (you don't usually remind yourself)
+            const familyMembers = result.data.filter((m: Member) => m._id !== user.id);
+            setChildrenMembers(familyMembers);
         }
     };
 
@@ -175,7 +174,7 @@ export default function RemindersPage() {
 
             toast({
                 title: 'Thành công',
-                description: isEditing ? 'Đã cập nhật lời nhắc' : 'Đã gửi lời nhắc cho bé',
+                description: isEditing ? 'Đã cập nhật lời nhắc' : 'Đã gửi lời nhắc',
             });
             setIsDialogOpen(false);
             fetchReminders();
@@ -226,25 +225,30 @@ export default function RemindersPage() {
                     )}
                 </div>
                 <CardTitle className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2 cursor-pointer hover:text-orange-600 transition-colors" onClick={() => openViewDialog(reminder)}>
-                    <Bell className="h-5 w-5 text-orange-500" />
-                    {reminder.title}
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                            <Bell className="h-5 w-5 text-orange-500" />
+                            {reminder.title}
+                        </div>
+                        <div className="text-[10px] font-normal text-muted-foreground ml-7">
+                            Gửi từ: <span className="font-semibold">{(reminder.createdBy as any)._id === user?.id ? 'Bạn' : (reminder.createdBy as any).name}</span>
+                        </div>
+                    </div>
                 </CardTitle>
             </CardHeader>
             <CardContent className="p-6 pt-2">
                 <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{reminder.content}</p>
-                {isParent && (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                        <span className="text-xs font-semibold text-muted-foreground mr-1">Gửi cho:</span>
-                        {(reminder.targetUserIds as any[]).map((u: any) => (
-                            <Badge key={u._id} variant="secondary" className="bg-blue-50 text-blue-600 border-none font-medium">
-                                <User className="h-3 w-3 mr-1" />
-                                {u.name}
-                            </Badge>
-                        ))}
-                    </div>
-                )}
+                <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="text-xs font-semibold text-muted-foreground mr-1">Gửi cho:</span>
+                    {(reminder.targetUserIds as any[]).map((u: any) => (
+                        <Badge key={u._id} variant="secondary" className="bg-blue-50 text-blue-600 border-none font-medium">
+                            <User className="h-3 w-3 mr-1" />
+                            {u._id === user?.id ? 'Bạn' : u.name}
+                        </Badge>
+                    ))}
+                </div>
             </CardContent>
-            {isParent && (
+            {((reminder.createdBy as any)._id === user?.id || isParent) && (
                 <CardFooter className="bg-muted/30 p-4 pt-2 flex justify-end gap-2">
                     <Button
                         variant="ghost"
@@ -278,15 +282,13 @@ export default function RemindersPage() {
                         Ghi chú nhắc nhở
                     </h1>
                     <p className="text-muted-foreground mt-2">
-                        {isParent ? 'Nhắn nhủ và nhắc nhở các con những việc quan trọng.' : 'Các lời nhắn từ bố mẹ dành cho bạn.'}
+                        Trao đổi, nhắc nhở và nhắn nhủ giữa các thành viên trong gia đình.
                     </p>
                 </div>
-                {isParent && (
-                    <Button onClick={openCreateDialog} className="shadow-lg bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 border-none">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Thêm nhắc nhở
-                    </Button>
-                )}
+                <Button onClick={openCreateDialog} className="shadow-lg bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 border-none">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Thêm nhắc nhở
+                </Button>
             </div>
 
             {isLoading ? (
@@ -298,7 +300,7 @@ export default function RemindersPage() {
                     <Bell className="h-12 w-12 text-muted-foreground/30 mb-4" />
                     <h3 className="text-lg font-semibold">Chưa có lời nhắc nào</h3>
                     <p className="text-muted-foreground max-w-sm mt-2">
-                        {isParent ? 'Hãy gửi lời nhắc đầu tiên cho con nhé!' : 'Tuyệt vời! Bạn không có lời nhắc nhở nào cả.'}
+                        Hãy gửi lời nhắc đầu tiên cho mọi người nhé!
                     </p>
                 </div>
             ) : (
@@ -314,7 +316,7 @@ export default function RemindersPage() {
                             {isViewing ? 'Chi tiết lời nhắc' : isEditing ? 'Sửa lời nhắc' : 'Tạo lời nhắc mới'}
                         </DialogTitle>
                         <DialogDescription>
-                            {isViewing ? 'Thông tin chi tiết về lời nhắc này.' : isEditing ? 'Cập nhật lại nội dung lời nhắc.' : 'Nhập nội dung lời nhắc và chọn các con sẽ nhận được.'}
+                            {isViewing ? 'Thông tin chi tiết về lời nhắc này.' : isEditing ? 'Cập nhật lại nội dung lời nhắc.' : 'Nhập nội dung lời nhắc và chọn người nhận.'}
                         </DialogDescription>
                     </DialogHeader>
                     {isViewing ? (
@@ -338,19 +340,17 @@ export default function RemindersPage() {
                                     {currentReminder.content || <span className="italic text-muted-foreground font-normal">Không có nội dung chi tiết.</span>}
                                 </div>
                             </div>
-                            {isParent && (
-                                <div className="space-y-2">
-                                    <Label className="text-xs text-muted-foreground uppercase">Người nhận</Label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {(currentReminder.targetUserIds as any[]).map((u: any) => (
-                                            <Badge key={u._id} variant="secondary" className="bg-blue-50 text-blue-600 border-none">
-                                                <User className="h-3 w-3 mr-1" />
-                                                {u.name}
-                                            </Badge>
-                                        ))}
-                                    </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground uppercase">Gửi cho</Label>
+                                <div className="flex flex-wrap gap-2">
+                                    {(currentReminder.targetUserIds as any[]).map((u: any) => (
+                                        <Badge key={u._id} variant="secondary" className="bg-blue-50 text-blue-600 border-none">
+                                            <User className="h-3 w-3 mr-1" />
+                                            {u._id === user?.id ? 'Bạn' : u.name}
+                                        </Badge>
+                                    ))}
                                 </div>
-                            )}
+                            </div>
                             <DialogFooter className="pt-4">
                                 <Button className="w-full" onClick={() => setIsDialogOpen(false)}>Đóng</Button>
                             </DialogFooter>
@@ -401,7 +401,7 @@ export default function RemindersPage() {
                                                 htmlFor={`user-${member._id}`}
                                                 className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                             >
-                                                {member.name}
+                                                {member.name} {member.role === 'parent' ? '(Ba mẹ)' : ''}
                                             </label>
                                         </div>
                                     ))}

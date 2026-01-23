@@ -15,12 +15,17 @@ export async function GET(req: NextRequest) {
         }
 
         const user = userId ? await User.findById(userId) : null;
-
         let query: any = { familyId };
 
         if (user && user.role === 'child') {
-            // For children, only show reminders targeted at them
-            query.targetUserIds = user._id;
+            // Children see reminders targeted at them OR created by them
+            query = {
+                familyId,
+                $or: [
+                    { targetUserIds: user._id },
+                    { createdBy: user._id }
+                ]
+            };
         }
 
         const reminders = await Reminder.find(query)
@@ -39,15 +44,6 @@ export async function POST(req: NextRequest) {
     await dbConnect();
     try {
         const body = await req.json();
-
-        // Check if the user creating the reminder is a parent
-        if (body.createdBy) {
-            const creator = await User.findById(body.createdBy);
-            if (creator?.role !== 'parent') {
-                return NextResponse.json({ error: 'Only parents can create reminders' }, { status: 403 });
-            }
-        }
-
         const reminder = await Reminder.create(body);
         return NextResponse.json(reminder, { status: 201 });
     } catch (error) {
