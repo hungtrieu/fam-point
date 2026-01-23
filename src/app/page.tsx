@@ -93,7 +93,7 @@ export default function LandingPage() {
           {APP_NAME}, <br /> Yêu Thương Đong Đầy
         </h1>
         <p className="mx-auto max-w-2xl text-lg text-muted-foreground mb-10">
-          Biến những công việc nhà hàng ngày thành niềm vui. Giúp trẻ xây dựng thói quen tốt thông qua hệ thống tích điểm và đổi quà thú vị.
+          Quản lý việc nhà và học tập của con một cách thông minh. Cha mẹ giao việc, lập thời khóa biểu; con hoàn thành, tích lũy điểm và đổi những món quà mơ ước.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link href={mounted && isAuthenticated ? "/dashboard" : "/auth/signup"}>
@@ -119,9 +119,9 @@ export default function LandingPage() {
               <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-full mb-4">
                 <CheckCircle className="h-8 w-8 text-blue-600 dark:text-blue-300" />
               </div>
-              <h3 className="text-xl font-bold mb-2">1. Giao Nhiệm Vụ</h3>
+              <h3 className="text-xl font-bold mb-2">1. Việc nhà & Lịch trình</h3>
               <p className="text-muted-foreground">
-                Phụ huynh tạo danh sách việc nhà hoặc bài tập. Dễ dàng theo dõi tiến độ của con.
+                Phụ huynh tạo danh sách việc nhà và lịch trình hàng ngày. Bé tự giác hoàn thành để tích điểm thưởng.
               </p>
             </CardContent>
           </Card>
@@ -131,9 +131,9 @@ export default function LandingPage() {
               <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-full mb-4">
                 <Gift className="h-8 w-8 text-purple-600 dark:text-purple-300" />
               </div>
-              <h3 className="text-xl font-bold mb-2">2. Tích Điểm & Đổi Quà</h3>
+              <h3 className="text-xl font-bold mb-2">2. Học tập & Nhắc nhở</h3>
               <p className="text-muted-foreground">
-                Mỗi nhiệm vụ hoàn thành sẽ mang lại điểm số. Trẻ dùng điểm để đổi lấy những phần thưởng yêu thích.
+                Lập thời khóa biểu học tập, gửi lời nhắn nhắc nhở đồng phục, bài vở giúp bé rèn luyện kỷ luật mỗi ngày.
               </p>
             </CardContent>
           </Card>
@@ -143,9 +143,9 @@ export default function LandingPage() {
               <div className="p-3 bg-rose-100 dark:bg-rose-900 rounded-full mb-4">
                 <Heart className="h-8 w-8 text-rose-600 dark:text-rose-300" />
               </div>
-              <h3 className="text-xl font-bold mb-2">3. Gắn Kết Gia Đình</h3>
+              <h3 className="text-xl font-bold mb-2">3. Thưởng & Gắn Kết</h3>
               <p className="text-muted-foreground">
-                Tạo động lực tích cực, giảm bớt căng thẳng trong việc giáo dục con cái và xây dựng không khí gia đình vui vẻ.
+                Dùng điểm tích lũy đổi những món quà mơ ước, giúp tạo động lực tích cực và gắn kết tình cảm gia đình.
               </p>
             </CardContent>
           </Card>
