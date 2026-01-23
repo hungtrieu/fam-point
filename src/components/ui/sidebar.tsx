@@ -31,7 +31,7 @@ const sidebarVariants = cva(
 
 export interface SidebarProps
   extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof sidebarVariants> {
+  VariantProps<typeof sidebarVariants> {
   collapsed?: boolean
 }
 
@@ -138,7 +138,7 @@ const buttonVariants = cva(
 
 export interface SidebarMenuButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+  VariantProps<typeof buttonVariants> {
   asChild?: boolean
   tooltip?: string
 }
@@ -191,6 +191,38 @@ const SidebarMenuButton = React.forwardRef<
 )
 SidebarMenuButton.displayName = "SidebarMenuButton"
 
+const SidebarTrigger = React.forwardRef<
+  HTMLButtonElement,
+  React.ButtonHTMLAttributes<HTMLButtonElement>
+>(({ className, ...props }, ref) => (
+  <button
+    ref={ref}
+    className={cn(
+      "inline-flex h-9 w-9 items-center justify-center rounded-md border bg-background text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+      className
+    )}
+    {...props}
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+    >
+      <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+      <path d="M9 3v18" />
+    </svg>
+    <span className="sr-only">Toggle Sidebar</span>
+  </button>
+))
+SidebarTrigger.displayName = "SidebarTrigger"
+
 export {
   Sidebar,
   SidebarHeader,
@@ -199,4 +231,5 @@ export {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarTrigger,
 }

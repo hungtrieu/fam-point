@@ -328,6 +328,9 @@ export default function ChildrenClient({ initialData }: ChildrenClientProps) {
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                         <DialogTitle>Chỉnh sửa thông tin</DialogTitle>
+                        <DialogDescription>
+                            Cập nhật thông tin thành viên trong gia đình.
+                        </DialogDescription>
                     </DialogHeader>
                     <form action={handleUpdate} className="space-y-4 py-4">
                         <div className="space-y-2">

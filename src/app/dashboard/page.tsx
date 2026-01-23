@@ -17,6 +17,8 @@ import {
   ArrowUpCircle,
   ShoppingBag,
   CalendarDays,
+  BookOpen,
+  Bell,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getChildren, getLeaderboard } from '@/app/members/actions';
@@ -29,6 +31,16 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { User } from 'lucide-react';
 import Link from 'next/link';
 
 interface LeaderboardMember {
@@ -61,6 +73,15 @@ interface Reward {
   _id: string;
 }
 
+interface Reminder {
+  _id: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  reminderDate?: string;
+  targetUserIds: any[];
+}
+
 export default function DashboardPage() {
   const { user, isLoading: authLoading, refreshUser } = useAuth();
   const { toast } = useToast();
@@ -69,6 +90,9 @@ export default function DashboardPage() {
   const [memberCount, setMemberCount] = useState(0);
   const [spentPoints, setSpentPoints] = useState(0);
   const [leaderboard, setLeaderboard] = useState<LeaderboardMember[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [selectedReminder, setSelectedReminder] = useState<Reminder | null>(null);
+  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -100,11 +124,12 @@ export default function DashboardPage() {
 
     setIsLoading(true);
     try {
-      const [tasksRes, rewardsRes, membersRes, leaderboardRes] = await Promise.all([
+      const [tasksRes, rewardsRes, membersRes, leaderboardRes, remindersRes] = await Promise.all([
         fetch(`/api/tasks?familyId=${user.familyId}`),
         fetch(`/api/rewards?familyId=${user.familyId}`),
         getChildren(user.familyId),
-        getLeaderboard(user.familyId)
+        getLeaderboard(user.familyId),
+        fetch(`/api/reminders?familyId=${user.familyId}&userId=${user.id}`)
       ]);
 
       if (tasksRes.ok) {
@@ -122,6 +147,11 @@ export default function DashboardPage() {
 
       if (leaderboardRes.success) {
         setLeaderboard(leaderboardRes.data || []);
+      }
+
+      if (remindersRes.ok) {
+        const data = await remindersRes.json();
+        setReminders(data);
       }
 
       // Fetch points spent for children
@@ -166,6 +196,24 @@ export default function DashboardPage() {
     }
   };
 
+  const openReminderDetail = (reminder: Reminder) => {
+    setSelectedReminder(reminder);
+    setIsReminderModalOpen(true);
+  };
+
+  const getVietnameseDay = (dateString: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+    return days[date.getDay()];
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+  };
+
   if (authLoading) {
     return (
       <div className="flex h-[400px] items-center justify-center">
@@ -202,7 +250,7 @@ export default function DashboardPage() {
               : 'Hôm nay bạn đã sẵn sàng rèn luyện và nhận quà chưa?'}
           </p>
         </div>
-        <div className="relative z-10 flex gap-3">
+        <div className="relative z-10 flex flex-wrap gap-3">
           {isParent ? (
             <div className="flex flex-col sm:flex-row gap-3">
               <Button asChild variant="secondary" className="bg-white text-blue-600 hover:bg-blue-50 border-none shadow-lg font-bold transition-all hover:scale-105">
@@ -213,6 +261,11 @@ export default function DashboardPage() {
               <Button asChild variant="secondary" className="bg-blue-500/30 hover:bg-blue-500/40 text-white border-none shadow-lg font-bold transition-all hover:scale-105 backdrop-blur-sm">
                 <Link href="/schedules">
                   <CalendarDays className="mr-2 h-4 w-4" /> Lập lịch trình
+                </Link>
+              </Button>
+              <Button asChild variant="secondary" className="bg-emerald-500/30 hover:bg-emerald-500/40 text-white border-none shadow-lg font-bold transition-all hover:scale-105 backdrop-blur-sm">
+                <Link href="/study-schedules">
+                  <BookOpen className="mr-2 h-4 w-4" /> Thời khóa biểu
                 </Link>
               </Button>
             </div>
@@ -227,11 +280,18 @@ export default function DashboardPage() {
                   <p className="text-2xl font-extrabold">{user.points || 0}</p>
                 </div>
               </div>
-              <Button asChild variant="secondary" className="bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm shadow-lg font-bold transition-all hover:scale-105">
-                <Link href="/schedules">
-                  <CalendarDays className="mr-2 h-4 w-4" /> Lịch trình việc
-                </Link>
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button asChild variant="secondary" className="bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm shadow-lg font-bold transition-all hover:scale-105">
+                  <Link href="/schedules">
+                    <CalendarDays className="mr-2 h-4 w-4" /> Lập lịch
+                  </Link>
+                </Button>
+                <Button asChild variant="secondary" className="bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm shadow-lg font-bold transition-all hover:scale-105">
+                  <Link href="/study-schedules">
+                    <BookOpen className="mr-2 h-4 w-4" /> Học tập
+                  </Link>
+                </Button>
+              </div>
             </div>
           )}
         </div>
@@ -293,6 +353,46 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Reminders Section */}
+      {reminders.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+              <Bell className="h-6 w-6 text-orange-500" />
+              {isParent ? 'Nhắc nhở đã gửi' : 'Lời nhắn từ bố mẹ'}
+            </h2>
+            <Button variant="ghost" size="sm" asChild className="text-orange-600 font-bold">
+              <Link href="/reminders" className="flex items-center gap-1">
+                Xem tất cả <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {reminders.slice(0, 3).map((reminder) => (
+              <Card
+                key={reminder._id}
+                className="border-none shadow-md bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/10 dark:to-red-900/10 overflow-hidden relative group cursor-pointer hover:shadow-lg transition-all active:scale-[0.98]"
+                onClick={() => openReminderDetail(reminder)}
+              >
+                <CardHeader className="p-4 pb-2">
+                  <div className="flex justify-between items-start">
+                    <Badge variant="outline" className="text-[9px] bg-white/50 border-orange-200 text-orange-700">LỜI NHẮC</Badge>
+                    <span className="text-[10px] text-muted-foreground">{new Date(reminder.createdAt).toLocaleDateString('vi-VN')}</span>
+                  </div>
+                  <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100 mt-1 truncate">{reminder.title}</CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">{reminder.content}</p>
+                </CardContent>
+                <div className="absolute bottom-0 right-0 p-2 opacity-5 group-hover:opacity-10 transition-opacity">
+                  <Bell className="h-12 w-12 text-orange-500" />
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -475,6 +575,55 @@ export default function DashboardPage() {
           )}
         </Card>
       </div>
+
+      {/* Reminder Detail Modal */}
+      <Dialog open={isReminderModalOpen} onOpenChange={setIsReminderModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Chi tiết lời nhắc</DialogTitle>
+            <DialogDescription>
+              Thông tin chi tiết về lời nhắc từ gia đình.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground uppercase">Tiêu đề</Label>
+              <div className="text-lg font-bold text-slate-900 dark:text-slate-100">{selectedReminder?.title}</div>
+            </div>
+            {selectedReminder?.reminderDate && (
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground uppercase">Ngày nhắc nhở</Label>
+                <div className="flex items-center gap-2 text-blue-600 font-semibold">
+                  <CalendarDays className="h-4 w-4" />
+                  {getVietnameseDay(selectedReminder.reminderDate)}, {formatDate(selectedReminder.reminderDate)}
+                </div>
+              </div>
+            )}
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground uppercase">Nội dung</Label>
+              <div className="text-slate-600 dark:text-slate-400 whitespace-pre-wrap bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                {selectedReminder?.content || <span className="italic text-muted-foreground font-normal">Không có nội dung chi tiết.</span>}
+              </div>
+            </div>
+            {isParent && selectedReminder?.targetUserIds && (
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground uppercase">Người nhận</Label>
+                <div className="flex flex-wrap gap-2">
+                  {selectedReminder.targetUserIds.map((u: any) => (
+                    <Badge key={u._id} variant="secondary" className="bg-blue-50 text-blue-600 border-none">
+                      <User className="h-3 w-3 mr-1" />
+                      {u.name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button className="w-full" onClick={() => setIsReminderModalOpen(false)}>Đóng</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
