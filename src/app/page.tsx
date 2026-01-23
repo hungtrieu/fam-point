@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { APP_NAME } from '@/lib/constants';
 
 export default function LandingPage() {
   const { user, logout, isAuthenticated } = useAuth();
@@ -29,7 +30,7 @@ export default function LandingPage() {
       <header className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-2 font-bold text-2xl text-primary">
           <Heart className="h-8 w-8 fill-current" />
-          <span>Family Rewards</span>
+          <span>{APP_NAME}</span>
         </div>
         <div className="flex items-center gap-4">
           {mounted && isAuthenticated ? (
@@ -89,7 +90,7 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="flex-1 flex flex-col items-center justify-center py-20 text-center px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-blue-50/50 to-white dark:from-slate-900/50 dark:to-background">
         <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-          Gia Đình Gắn Kết, <br /> Yêu Thương Đong Đầy
+          {APP_NAME}, <br /> Yêu Thương Đong Đầy
         </h1>
         <p className="mx-auto max-w-2xl text-lg text-muted-foreground mb-10">
           Biến những công việc nhà hàng ngày thành niềm vui. Giúp trẻ xây dựng thói quen tốt thông qua hệ thống tích điểm và đổi quà thú vị.
@@ -110,7 +111,7 @@ export default function LandingPage() {
 
       {/* Features Section */}
       <section className="py-20 bg-background container mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 className="text-3xl font-bold text-center mb-12">Cách Family Rewards hoạt động</h2>
+        <h2 className="text-3xl font-bold text-center mb-12">Cách {APP_NAME} hoạt động</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
 
           <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-blue-50/50 dark:bg-slate-800/50">
@@ -154,7 +155,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="py-8 text-center text-sm text-muted-foreground border-t">
-        <p>&copy; {new Date().getFullYear()} Family Rewards. Xây dựng thói quen, vun đắp yêu thương.</p>
+        <p>&copy; {new Date().getFullYear()} {APP_NAME}. Xây dựng thói quen, vun đắp yêu thương.</p>
       </footer>
     </div>
   );

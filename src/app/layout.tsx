@@ -5,8 +5,10 @@ import { AuthProvider } from '@/context/auth-context';
 import './globals.css';
 
 
+import { APP_NAME } from '@/lib/constants';
+
 export const metadata: Metadata = {
-  title: 'Gia Đình Gắn Kết',
+  title: APP_NAME,
   description: 'Ứng dụng tương tác và giao việc trong gia đình.',
 };
 

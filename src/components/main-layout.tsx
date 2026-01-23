@@ -17,6 +17,7 @@ import {
 import { AuthGuard } from '@/components/auth-guard';
 import { useAuth } from '@/context/auth-context';
 import { cn } from '@/lib/utils';
+import { APP_NAME } from '@/lib/constants';
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
@@ -43,13 +44,13 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                                     <SheetHeader className="sr-only">
                                         <SheetTitle>Menu điều hướng</SheetTitle>
                                         <SheetDescription>
-                                            Truy cập các tính năng của Gia Đình Gắn Kết trên điện thoại.
+                                            Truy cập các tính năng của {APP_NAME} trên điện thoại.
                                         </SheetDescription>
                                     </SheetHeader>
                                     <div className="flex h-16 items-center px-6 border-b">
                                         <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-primary">
                                             <Home className="h-6 w-6" />
-                                            <span className="font-bold text-xl tracking-tight">Gia Đình Gắn Kết</span>
+                                            <span className="font-bold text-xl tracking-tight">{APP_NAME}</span>
                                         </Link>
                                     </div>
                                     <div className="p-4">
@@ -64,7 +65,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                             <div className="bg-primary/10 p-1.5 rounded-lg">
                                 <Home className="h-5 w-5" />
                             </div>
-                            <span className="font-bold text-xl tracking-tight hidden sm:inline-block">Gia Đình Gắn Kết</span>
+                            <span className="font-bold text-xl tracking-tight hidden sm:inline-block">{APP_NAME}</span>
                         </Link>
 
                         {/* Desktop Navigation */}
