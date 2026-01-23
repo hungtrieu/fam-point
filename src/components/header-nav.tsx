@@ -10,6 +10,7 @@ import {
   Gift,
   History,
   Users,
+  CalendarDays,
 } from 'lucide-react';
 
 
@@ -38,6 +39,11 @@ export function HeaderNav({ mobile = false }: HeaderNavProps) {
       label: 'Quản lý thành viên',
       icon: Users,
     },
+    {
+      href: `/schedules`,
+      label: 'Lập lịch trình',
+      icon: CalendarDays,
+    },
   ];
 
   const childNavItems = [
@@ -55,6 +61,11 @@ export function HeaderNav({ mobile = false }: HeaderNavProps) {
       href: `/history`,
       label: 'Lịch sử điểm',
       icon: History,
+    },
+    {
+      href: `/schedules`,
+      label: 'Lịch trình việc',
+      icon: CalendarDays,
     },
   ];
 

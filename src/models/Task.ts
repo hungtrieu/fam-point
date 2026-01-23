@@ -39,6 +39,13 @@ const TaskSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
     },
+    scheduleId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Schedule',
+    },
+    scheduledDate: {
+        type: Date,
+    },
     createdAt: {
         type: Date,
         default: Date.now,

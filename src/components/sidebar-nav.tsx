@@ -12,6 +12,7 @@ import {
   Gift,
   History,
   Users,
+  CalendarDays,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -39,6 +40,11 @@ export function SidebarNav({ role }: SidebarNavProps) {
       label: 'Quản lý thành viên',
       icon: Users,
     },
+    {
+      href: `/schedules`,
+      label: 'Lập lịch trình',
+      icon: CalendarDays,
+    },
   ];
 
   const childNavItems = [
@@ -56,6 +62,11 @@ export function SidebarNav({ role }: SidebarNavProps) {
       href: `/history`,
       label: 'Lịch sử điểm',
       icon: History,
+    },
+    {
+      href: `/schedules`,
+      label: 'Lịch trình việc',
+      icon: CalendarDays,
     },
   ];
 

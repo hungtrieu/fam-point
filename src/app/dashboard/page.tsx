@@ -15,7 +15,8 @@ import {
   TrendingUp,
   Plus,
   ArrowUpCircle,
-  ShoppingBag
+  ShoppingBag,
+  CalendarDays,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getChildren, getLeaderboard } from '@/app/members/actions';
@@ -72,9 +73,24 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (user?.id) {
-      fetchDashboardData();
+      generateScheduledTasks().then(() => {
+        fetchDashboardData();
+      });
     }
   }, [user?.id]);
+
+  const generateScheduledTasks = async () => {
+    if (!user?.familyId) return;
+    try {
+      await fetch('/api/tasks/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ familyId: user.familyId }),
+      });
+    } catch (error) {
+      console.error('Failed to generate scheduled tasks:', error);
+    }
+  };
 
   const fetchDashboardData = async () => {
     if (!user?.familyId) return;
@@ -188,20 +204,34 @@ export default function DashboardPage() {
         </div>
         <div className="relative z-10 flex gap-3">
           {isParent ? (
-            <Button asChild variant="secondary" className="bg-white text-blue-600 hover:bg-blue-50 border-none shadow-lg font-bold transition-all hover:scale-105">
-              <Link href="/tasks">
-                <Plus className="mr-2 h-4 w-4" /> Giao việc mới
-              </Link>
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button asChild variant="secondary" className="bg-white text-blue-600 hover:bg-blue-50 border-none shadow-lg font-bold transition-all hover:scale-105">
+                <Link href="/tasks">
+                  <Plus className="mr-2 h-4 w-4" /> Giao việc mới
+                </Link>
+              </Button>
+              <Button asChild variant="secondary" className="bg-blue-500/30 hover:bg-blue-500/40 text-white border-none shadow-lg font-bold transition-all hover:scale-105 backdrop-blur-sm">
+                <Link href="/schedules">
+                  <CalendarDays className="mr-2 h-4 w-4" /> Lập lịch trình
+                </Link>
+              </Button>
+            </div>
           ) : (
-            <div className="bg-white/20 backdrop-blur-md px-6 py-3 rounded-xl border border-white/30 flex items-center gap-3">
-              <div className="bg-amber-400 p-2 rounded-full">
-                <Coins className="h-5 w-5 text-amber-900" />
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="bg-white/20 backdrop-blur-md px-6 py-3 rounded-xl border border-white/30 flex items-center gap-3">
+                <div className="bg-amber-400 p-2 rounded-full">
+                  <Coins className="h-5 w-5 text-amber-900" />
+                </div>
+                <div>
+                  <p className="text-xs text-blue-100 font-medium uppercase tracking-wider">Điểm của bạn</p>
+                  <p className="text-2xl font-extrabold">{user.points || 0}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-blue-100 font-medium uppercase tracking-wider">Điểm của bạn</p>
-                <p className="text-2xl font-extrabold">{user.points || 0}</p>
-              </div>
+              <Button asChild variant="secondary" className="bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm shadow-lg font-bold transition-all hover:scale-105">
+                <Link href="/schedules">
+                  <CalendarDays className="mr-2 h-4 w-4" /> Lịch trình việc
+                </Link>
+              </Button>
             </div>
           )}
         </div>

@@ -66,10 +66,25 @@ export default function TasksPage() {
     useEffect(() => {
         setMounted(true);
         if (user?.familyId) {
-            fetchTasks();
-            fetchMembers();
+            generateScheduledTasks().then(() => {
+                fetchTasks();
+                fetchMembers();
+            });
         }
     }, [user?.familyId]);
+
+    const generateScheduledTasks = async () => {
+        if (!user?.familyId) return;
+        try {
+            await fetch('/api/tasks/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ familyId: user.familyId }),
+            });
+        } catch (error) {
+            console.error('Failed to generate scheduled tasks:', error);
+        }
+    };
 
     const fetchTasks = async () => {
         if (!user?.familyId) return;
