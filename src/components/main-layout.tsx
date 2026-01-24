@@ -40,7 +40,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                                         <span className="sr-only">Mở menu</span>
                                     </Button>
                                 </SheetTrigger>
-                                <SheetContent side="left" className="w-72 p-0">
+                                <SheetContent side="left" className="w-72 p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
                                     <SheetHeader className="sr-only">
                                         <SheetTitle>Menu điều hướng</SheetTitle>
                                         <SheetDescription>

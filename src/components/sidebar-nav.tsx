@@ -107,7 +107,7 @@ export function SidebarNav({ role }: SidebarNavProps) {
                 return (
                   <SidebarMenuItem key={item.label}>
                     <Link href={url}>
-                      <SidebarMenuButton isActive={isActive} tooltip={item.label}>
+                      <SidebarMenuButton isActive={isActive}>
                         <item.icon className="size-4" />
                         <span>{item.label}</span>
                       </SidebarMenuButton>
