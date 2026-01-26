@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Plus, Trash2, Bell, User, Clock, CheckCircle2, Megaphone, CalendarDays, Image as ImageIcon, X, Loader2, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,6 +28,8 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/context/auth-context';
 import { getChildren } from '@/app/members/actions';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useRouter } from 'next/navigation';
 
 interface Reminder {
     _id: string;
@@ -64,6 +67,9 @@ export default function RemindersPage() {
     const { user } = useAuth();
     const isParent = user?.role === 'parent';
     const { toast } = useToast();
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const filter = searchParams.get('filter') || 'all';
 
     const [reminders, setReminders] = useState<Reminder[]>([]);
     const [childrenMembers, setChildrenMembers] = useState<Member[]>([]);
@@ -95,13 +101,14 @@ export default function RemindersPage() {
             fetchMembers();
         }
         return () => window.removeEventListener('resize', checkMobile);
-    }, [user?.familyId, user?.role]);
+    }, [user?.familyId, user?.role, filter]);
 
     const fetchReminders = async () => {
         if (!user?.familyId || !user?.id) return;
         setIsLoading(true);
         try {
-            const res = await fetch(`/api/reminders?familyId=${user.familyId}&userId=${user.id}`);
+            const url = `/api/reminders?familyId=${user.familyId}&userId=${user.id}`;
+            const res = await fetch(url);
             if (!res.ok) throw new Error('Failed to fetch');
             const data = await res.json();
             setReminders(data);
@@ -135,6 +142,7 @@ export default function RemindersPage() {
             imageUrl: '',
         });
         setIsEditing(false);
+        setIsViewing(false);
         setIsDialogOpen(true);
     };
 
@@ -148,11 +156,37 @@ export default function RemindersPage() {
         setIsDialogOpen(true);
     };
 
-    const openViewDialog = (reminder: Reminder) => {
+    const openViewDialog = async (reminder: Reminder) => {
         setCurrentReminder(reminder);
         setIsEditing(false);
         setIsViewing(true);
         setIsDialogOpen(true);
+    };
+
+    const handleDialogChange = async (open: boolean) => {
+        setIsDialogOpen(open);
+
+        // If the dialog is being closed and we were viewing an unread reminder
+        if (!open && isViewing && currentReminder._id && !currentReminder.isRead) {
+            const reminderId = currentReminder._id;
+            try {
+                const res = await fetch(`/api/reminders/${reminderId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ isRead: true }),
+                });
+                if (res.ok) {
+                    // Update local states to show it's read
+                    setReminders(prev => prev.map(r => r._id === reminderId ? { ...r, isRead: true } : r));
+                    setCurrentReminder(prev => ({ ...prev, isRead: true }));
+
+                    // Trigger a custom event to notify NotificationBell to refresh
+                    window.dispatchEvent(new Event('reminderMarkedRead'));
+                }
+            } catch (error) {
+                console.error('Failed to mark as read:', error);
+            }
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -326,6 +360,11 @@ export default function RemindersPage() {
         });
     };
 
+    const isTarget = (reminder: Reminder) => {
+        const targetIds = (reminder.targetUserIds as any[]).map(u => typeof u === 'string' ? u : u._id);
+        return targetIds.includes(user?.id);
+    };
+
     const renderReminderCard = (reminder: Reminder) => (
         <Card key={reminder._id} className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 bg-card/50 backdrop-blur-sm border-l-4 border-l-orange-400">
             <CardHeader className="p-6 pb-2">
@@ -334,9 +373,16 @@ export default function RemindersPage() {
                         Lời nhắc
                     </Badge>
                     {reminder.reminderDate && (
-                        <Badge variant="secondary" className="bg-blue-50 text-blue-600 border-none font-bold text-[10px]">
-                            {getVietnameseDay(reminder.reminderDate)}, {formatDate(reminder.reminderDate)}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                            {!reminder.isRead && isTarget(reminder) && (
+                                <Badge className="bg-red-500 hover:bg-red-600 text-white border-none text-[9px] h-4 px-1.5 font-bold animate-pulse">
+                                    MỚI
+                                </Badge>
+                            )}
+                            <Badge variant="secondary" className="bg-blue-50 text-blue-600 border-none font-bold text-[10px]">
+                                {getVietnameseDay(reminder.reminderDate)}, {formatDate(reminder.reminderDate)}
+                            </Badge>
+                        </div>
                     )}
                 </div>
                 <CardTitle className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2 cursor-pointer hover:text-orange-600 transition-colors" onClick={() => openViewDialog(reminder)}>
@@ -398,6 +444,14 @@ export default function RemindersPage() {
 
     if (!mounted) return null;
 
+    const filteredReminders = filter === 'unread'
+        ? reminders.filter(r => !r.isRead && isTarget(r))
+        : reminders;
+
+    const handleTabChange = (value: string) => {
+        router.push(`/reminders?filter=${value}`);
+    };
+
     return (
         <div className="container mx-auto py-10 space-y-6 px-4 md:px-6">
             <div className="flex items-center justify-between">
@@ -420,21 +474,40 @@ export default function RemindersPage() {
                 <div className="flex justify-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>
-            ) : reminders.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-center bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
-                    <Bell className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                    <h3 className="text-lg font-semibold">Chưa có lời nhắc nào</h3>
-                    <p className="text-muted-foreground max-w-sm mt-2">
-                        Hãy gửi lời nhắc đầu tiên cho mọi người nhé!
-                    </p>
-                </div>
             ) : (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {reminders.map(renderReminderCard)}
-                </div>
+                <Tabs value={filter} onValueChange={handleTabChange} className="w-full">
+                    <div className="flex justify-center mb-6">
+                        <TabsList className="grid w-full max-w-[400px] grid-cols-2 shadow-sm border bg-muted/30">
+                            <TabsTrigger value="all" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                                Tất cả ({reminders.length})
+                            </TabsTrigger>
+                            <TabsTrigger value="unread" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                                Chưa đọc ({reminders.filter(r => !r.isRead && isTarget(r)).length})
+                            </TabsTrigger>
+                        </TabsList>
+                    </div>
+
+                    <TabsContent value={filter} className="mt-0 space-y-6">
+                        {filteredReminders.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-20 text-center bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
+                                <Bell className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                                <h3 className="text-lg font-semibold">
+                                    {filter === 'unread' ? 'Không có nhắc nhở chưa đọc nào' : 'Chưa có lời nhắc nào'}
+                                </h3>
+                                <p className="text-muted-foreground max-w-sm mt-2">
+                                    {filter === 'unread' ? 'Tuyệt vời! Bạn đã đọc hết mọi thứ.' : 'Hãy gửi lời nhắc đầu tiên cho mọi người nhé!'}
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                {filteredReminders.map(renderReminderCard)}
+                            </div>
+                        )}
+                    </TabsContent>
+                </Tabs>
             )}
 
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                         <DialogTitle>
@@ -485,7 +558,7 @@ export default function RemindersPage() {
                                 </div>
                             </div>
                             <DialogFooter className="pt-4">
-                                <Button className="w-full" onClick={() => setIsDialogOpen(false)}>Đóng</Button>
+                                <Button className="w-full" onClick={() => handleDialogChange(false)}>Đóng</Button>
                             </DialogFooter>
                         </div>
                     ) : (

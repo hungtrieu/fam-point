@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { UserNav } from '@/components/user-nav';
 import { HeaderNav } from '@/components/header-nav';
 import { SidebarNav } from '@/components/sidebar-nav';
+import { NotificationBell } from '@/components/notification-bell';
 import Link from 'next/link';
 import {
     Sheet,
@@ -74,7 +75,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                         </nav>
 
                         {/* User Profile */}
-                        <div className="ml-auto">
+                        <div className="ml-auto flex items-center gap-2">
+                            <NotificationBell />
                             <UserNav />
                         </div>
                     </div>

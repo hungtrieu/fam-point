@@ -9,6 +9,7 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const familyId = searchParams.get('familyId');
         const userId = searchParams.get('userId');
+        const unreadOnly = searchParams.get('unreadOnly') === 'true';
 
         if (!familyId) {
             return NextResponse.json({ error: 'Missing familyId' }, { status: 400 });
@@ -26,6 +27,14 @@ export async function GET(req: NextRequest) {
                     { createdBy: user._id }
                 ]
             };
+        }
+
+        if (unreadOnly) {
+            query.isRead = false;
+            // Only count as unread if the user is one of the targets
+            if (userId) {
+                query.targetUserIds = userId;
+            }
         }
 
         const reminders = await Reminder.find(query)
