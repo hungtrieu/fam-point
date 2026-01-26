@@ -29,6 +29,9 @@ const ReminderSchema = new mongoose.Schema({
     reminderDate: {
         type: String,
     },
+    imageUrl: {
+        type: String,
+    },
     createdAt: {
         type: Date,
         default: Date.now,
