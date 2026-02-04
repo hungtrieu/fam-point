@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Bell, User, Clock, CheckCircle2, Megaphone, CalendarDays } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { Plus, Trash2, Bell, User, Clock, CheckCircle2, Megaphone, CalendarDays, Image as ImageIcon, X, Loader2, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -27,6 +28,8 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/context/auth-context';
 import { getChildren } from '@/app/members/actions';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useRouter } from 'next/navigation';
 
 interface Reminder {
     _id: string;
@@ -37,6 +40,7 @@ interface Reminder {
     createdBy: string | { _id: string; name: string };
     isRead: boolean;
     reminderDate?: string;
+    imageUrl?: string;
     createdAt: string;
 }
 
@@ -63,6 +67,9 @@ export default function RemindersPage() {
     const { user } = useAuth();
     const isParent = user?.role === 'parent';
     const { toast } = useToast();
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const filter = searchParams.get('filter') || 'all';
 
     const [reminders, setReminders] = useState<Reminder[]>([]);
     const [childrenMembers, setChildrenMembers] = useState<Member[]>([]);
@@ -73,24 +80,35 @@ export default function RemindersPage() {
         content: '',
         targetUserIds: [],
         reminderDate: new Date().toISOString().split('T')[0],
+        imageUrl: '',
     });
     const [isEditing, setIsEditing] = useState(false);
     const [isViewing, setIsViewing] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         setMounted(true);
+        const checkMobile = () => {
+            setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+
         if (user?.familyId) {
             fetchReminders();
             fetchMembers();
         }
-    }, [user?.familyId, user?.role]);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, [user?.familyId, user?.role, filter]);
 
     const fetchReminders = async () => {
         if (!user?.familyId || !user?.id) return;
         setIsLoading(true);
         try {
-            const res = await fetch(`/api/reminders?familyId=${user.familyId}&userId=${user.id}`);
+            const url = `/api/reminders?familyId=${user.familyId}&userId=${user.id}`;
+            const res = await fetch(url);
             if (!res.ok) throw new Error('Failed to fetch');
             const data = await res.json();
             setReminders(data);
@@ -121,8 +139,10 @@ export default function RemindersPage() {
             content: '',
             targetUserIds: [],
             reminderDate: new Date().toISOString().split('T')[0],
+            imageUrl: '',
         });
         setIsEditing(false);
+        setIsViewing(false);
         setIsDialogOpen(true);
     };
 
@@ -136,11 +156,37 @@ export default function RemindersPage() {
         setIsDialogOpen(true);
     };
 
-    const openViewDialog = (reminder: Reminder) => {
+    const openViewDialog = async (reminder: Reminder) => {
         setCurrentReminder(reminder);
         setIsEditing(false);
         setIsViewing(true);
         setIsDialogOpen(true);
+    };
+
+    const handleDialogChange = async (open: boolean) => {
+        setIsDialogOpen(open);
+
+        // If the dialog is being closed and we were viewing an unread reminder
+        if (!open && isViewing && currentReminder._id && !currentReminder.isRead) {
+            const reminderId = currentReminder._id;
+            try {
+                const res = await fetch(`/api/reminders/${reminderId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ isRead: true }),
+                });
+                if (res.ok) {
+                    // Update local states to show it's read
+                    setReminders(prev => prev.map(r => r._id === reminderId ? { ...r, isRead: true } : r));
+                    setCurrentReminder(prev => ({ ...prev, isRead: true }));
+
+                    // Trigger a custom event to notify NotificationBell to refresh
+                    window.dispatchEvent(new Event('reminderMarkedRead'));
+                }
+            } catch (error) {
+                console.error('Failed to mark as read:', error);
+            }
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -178,7 +224,7 @@ export default function RemindersPage() {
             });
             setIsDialogOpen(false);
             fetchReminders();
-            setCurrentReminder({ title: '', content: '', targetUserIds: [], reminderDate: new Date().toISOString().split('T')[0] });
+            setCurrentReminder({ title: '', content: '', targetUserIds: [], reminderDate: new Date().toISOString().split('T')[0], imageUrl: '' });
         } catch (error) {
             toast({
                 title: 'Lỗi',
@@ -211,6 +257,114 @@ export default function RemindersPage() {
         setCurrentReminder({ ...currentReminder, targetUserIds: currentIds });
     };
 
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            toast({
+                title: 'Lỗi',
+                description: 'Vui lòng chọn tệp hình ảnh',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            // 1. Resize image
+            const resizedImage = await resizeImage(file, 1920);
+
+            // 2. Prepare upload
+            const formData = new FormData();
+            formData.append('file', resizedImage);
+
+            let uploadUrl = '';
+            let responseData: any;
+
+            // Check if we are in development environment
+            const isDev = process.env.NODE_ENV === 'development';
+
+            if (isDev) {
+                // Use local upload API in development
+                uploadUrl = '/api/upload';
+                const res = await fetch(uploadUrl, {
+                    method: 'POST',
+                    body: formData,
+                });
+                if (!res.ok) throw new Error('Local upload failed');
+                responseData = await res.json();
+            } else {
+                // Use Cloudinary in production
+                formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'ml_default');
+                const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+                if (!cloudName) {
+                    throw new Error('Cloudinary cloud name not configured');
+                }
+                uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+
+                const res = await fetch(uploadUrl, {
+                    method: 'POST',
+                    body: formData,
+                });
+                if (!res.ok) throw new Error('Cloudinary upload failed');
+                responseData = await res.json();
+            }
+
+            setCurrentReminder({ ...currentReminder, imageUrl: responseData.secure_url });
+
+            toast({
+                title: 'Thành công',
+                description: isDev ? 'Đã lưu ảnh vào máy cục bộ' : 'Đã tải ảnh lên Cloudinary',
+            });
+        } catch (error: any) {
+            console.error('Upload error:', error);
+            toast({
+                title: 'Lỗi',
+                description: `Không thể tải ảnh lên: ${error.message}`,
+                variant: 'destructive',
+            });
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const resizeImage = (file: File, maxWidth: number): Promise<Blob> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target?.result as string;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > maxWidth) {
+                        height = (height * maxWidth) / width;
+                        width = maxWidth;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx?.drawImage(img, 0, 0, width, height);
+                    canvas.toBlob((blob) => {
+                        if (blob) resolve(blob);
+                        else reject(new Error('Canvas to Blob failed'));
+                    }, 'image/jpeg', 0.8);
+                };
+            };
+            reader.onerror = (error) => reject(error);
+        });
+    };
+
+    const isTarget = (reminder: Reminder) => {
+        const targetIds = (reminder.targetUserIds as any[]).map(u => typeof u === 'string' ? u : u._id);
+        return targetIds.includes(user?.id);
+    };
+
     const renderReminderCard = (reminder: Reminder) => (
         <Card key={reminder._id} className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 bg-card/50 backdrop-blur-sm border-l-4 border-l-orange-400">
             <CardHeader className="p-6 pb-2">
@@ -219,9 +373,16 @@ export default function RemindersPage() {
                         Lời nhắc
                     </Badge>
                     {reminder.reminderDate && (
-                        <Badge variant="secondary" className="bg-blue-50 text-blue-600 border-none font-bold text-[10px]">
-                            {getVietnameseDay(reminder.reminderDate)}, {formatDate(reminder.reminderDate)}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                            {!reminder.isRead && isTarget(reminder) && (
+                                <Badge className="bg-red-500 hover:bg-red-600 text-white border-none text-[9px] h-4 px-1.5 font-bold animate-pulse">
+                                    MỚI
+                                </Badge>
+                            )}
+                            <Badge variant="secondary" className="bg-blue-50 text-blue-600 border-none font-bold text-[10px]">
+                                {getVietnameseDay(reminder.reminderDate)}, {formatDate(reminder.reminderDate)}
+                            </Badge>
+                        </div>
                     )}
                 </div>
                 <CardTitle className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2 cursor-pointer hover:text-orange-600 transition-colors" onClick={() => openViewDialog(reminder)}>
@@ -237,6 +398,16 @@ export default function RemindersPage() {
                 </CardTitle>
             </CardHeader>
             <CardContent className="p-6 pt-2">
+                {reminder.imageUrl && (
+                    <div className="mb-4 rounded-lg overflow-hidden border border-slate-100 dark:border-slate-800 aspect-video relative group">
+                        <img
+                            src={reminder.imageUrl}
+                            alt={reminder.title}
+                            className="w-full h-full object-cover cursor-pointer transition-transform duration-500 group-hover:scale-105"
+                            onClick={() => openViewDialog(reminder)}
+                        />
+                    </div>
+                )}
                 <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{reminder.content}</p>
                 <div className="mt-4 flex flex-wrap gap-2">
                     <span className="text-xs font-semibold text-muted-foreground mr-1">Gửi cho:</span>
@@ -273,6 +444,14 @@ export default function RemindersPage() {
 
     if (!mounted) return null;
 
+    const filteredReminders = filter === 'unread'
+        ? reminders.filter(r => !r.isRead && isTarget(r))
+        : reminders;
+
+    const handleTabChange = (value: string) => {
+        router.push(`/reminders?filter=${value}`);
+    };
+
     return (
         <div className="container mx-auto py-10 space-y-6 px-4 md:px-6">
             <div className="flex items-center justify-between">
@@ -295,21 +474,40 @@ export default function RemindersPage() {
                 <div className="flex justify-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>
-            ) : reminders.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-center bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
-                    <Bell className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                    <h3 className="text-lg font-semibold">Chưa có lời nhắc nào</h3>
-                    <p className="text-muted-foreground max-w-sm mt-2">
-                        Hãy gửi lời nhắc đầu tiên cho mọi người nhé!
-                    </p>
-                </div>
             ) : (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {reminders.map(renderReminderCard)}
-                </div>
+                <Tabs value={filter} onValueChange={handleTabChange} className="w-full">
+                    <div className="flex justify-center mb-6">
+                        <TabsList className="grid w-full max-w-[400px] grid-cols-2 shadow-sm border bg-muted/30">
+                            <TabsTrigger value="all" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                                Tất cả ({reminders.length})
+                            </TabsTrigger>
+                            <TabsTrigger value="unread" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                                Chưa đọc ({reminders.filter(r => !r.isRead && isTarget(r)).length})
+                            </TabsTrigger>
+                        </TabsList>
+                    </div>
+
+                    <TabsContent value={filter} className="mt-0 space-y-6">
+                        {filteredReminders.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-20 text-center bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
+                                <Bell className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                                <h3 className="text-lg font-semibold">
+                                    {filter === 'unread' ? 'Không có nhắc nhở chưa đọc nào' : 'Chưa có lời nhắc nào'}
+                                </h3>
+                                <p className="text-muted-foreground max-w-sm mt-2">
+                                    {filter === 'unread' ? 'Tuyệt vời! Bạn đã đọc hết mọi thứ.' : 'Hãy gửi lời nhắc đầu tiên cho mọi người nhé!'}
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                {filteredReminders.map(renderReminderCard)}
+                            </div>
+                        )}
+                    </TabsContent>
+                </Tabs>
             )}
 
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                         <DialogTitle>
@@ -340,6 +538,14 @@ export default function RemindersPage() {
                                     {currentReminder.content || <span className="italic text-muted-foreground font-normal">Không có nội dung chi tiết.</span>}
                                 </div>
                             </div>
+                            {currentReminder.imageUrl && (
+                                <div className="space-y-1">
+                                    <Label className="text-xs text-muted-foreground uppercase">Hình ảnh</Label>
+                                    <div className="rounded-lg overflow-hidden border border-slate-100 dark:border-slate-800">
+                                        <img src={currentReminder.imageUrl} alt={currentReminder.title} className="w-full h-auto" />
+                                    </div>
+                                </div>
+                            )}
                             <div className="space-y-2">
                                 <Label className="text-xs text-muted-foreground uppercase">Gửi cho</Label>
                                 <div className="flex flex-wrap gap-2">
@@ -352,7 +558,7 @@ export default function RemindersPage() {
                                 </div>
                             </div>
                             <DialogFooter className="pt-4">
-                                <Button className="w-full" onClick={() => setIsDialogOpen(false)}>Đóng</Button>
+                                <Button className="w-full" onClick={() => handleDialogChange(false)}>Đóng</Button>
                             </DialogFooter>
                         </div>
                     ) : (
@@ -386,6 +592,58 @@ export default function RemindersPage() {
                                     placeholder="Ví dụ: Ngày mai các con mặc đồng phục lớp để thi kéo co nhé!"
                                     rows={4}
                                 />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Hình ảnh</Label>
+                                {currentReminder.imageUrl ? (
+                                    <div className="relative rounded-lg overflow-hidden border">
+                                        <img src={currentReminder.imageUrl} alt="Preview" className="w-full h-40 object-cover" />
+                                        <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="icon"
+                                            className="absolute top-2 right-2 h-8 w-8 rounded-full"
+                                            onClick={() => setCurrentReminder({ ...currentReminder, imageUrl: '' })}
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {isMobile && process.env.NODE_ENV !== 'development' && (
+                                            <div className="flex flex-col items-center justify-center border-2 border-dashed border-orange-200 rounded-lg p-6 bg-orange-50/50 hover:bg-orange-50 transition-colors cursor-pointer relative group">
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    capture="environment"
+                                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                                    onChange={handleImageUpload}
+                                                    disabled={isUploading}
+                                                />
+                                                <Camera className="h-8 w-8 text-orange-500 mb-2 group-active:scale-95 transition-transform" />
+                                                <p className="text-sm text-orange-600 font-bold">Chụp ảnh ngay</p>
+                                                <p className="text-[10px] text-orange-400">Sử dụng camera điện thoại</p>
+                                            </div>
+                                        )}
+                                        <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 bg-muted/50 hover:bg-muted/80 transition-colors cursor-pointer relative">
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                className="absolute inset-0 opacity-0 cursor-pointer"
+                                                onChange={handleImageUpload}
+                                                disabled={isUploading}
+                                            />
+                                            {isUploading ? (
+                                                <Loader2 className="h-8 w-8 text-orange-500 animate-spin" />
+                                            ) : (
+                                                <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
+                                            )}
+                                            <p className="text-sm text-muted-foreground">
+                                                {isUploading ? 'Đang tải lên...' : 'Bấm để chọn ảnh từ máy'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             <div className="space-y-3">
                                 <Label>Gửi cho</Label>
