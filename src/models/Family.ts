@@ -10,6 +10,12 @@ const FamilySchema = new mongoose.Schema({
         type: Date,
         default: Date.now,
     },
+    settings: {
+        autoApproveTasks: {
+            type: Boolean,
+            default: true,
+        },
+    },
 });
 
 export default mongoose.models.Family || mongoose.model('Family', FamilySchema);

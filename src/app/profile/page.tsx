@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -14,7 +15,7 @@ import {
     CardTitle,
     CardFooter
 } from '@/components/ui/card';
-import { User, Mail, Lock, ShieldCheck, Save, ArrowLeft } from 'lucide-react';
+import { User, Mail, Lock, ShieldCheck, Save, ArrowLeft, Settings } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 
@@ -30,6 +31,55 @@ export default function ProfilePage() {
         newPassword: '',
         confirmPassword: '',
     });
+
+    const [familySettings, setFamilySettings] = useState({ autoApproveTasks: true });
+    const [isLoadingSettings, setIsLoadingSettings] = useState(false);
+
+    useEffect(() => {
+        if (user?.role === 'parent') {
+            setIsLoadingSettings(true);
+            fetch(`/api/family/settings?userId=${user.id}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.autoApproveTasks !== undefined) {
+                        setFamilySettings({ autoApproveTasks: data.autoApproveTasks });
+                    }
+                })
+                .catch(err => console.error(err))
+                .finally(() => setIsLoadingSettings(false));
+        }
+    }, [user]);
+
+    const handleAutoApproveChange = async (checked: boolean) => {
+        // Optimistic update
+        setFamilySettings(prev => ({ ...prev, autoApproveTasks: checked }));
+
+        try {
+            const res = await fetch('/api/family/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: user?.id,
+                    autoApproveTasks: checked
+                }),
+            });
+
+            if (!res.ok) throw new Error('Failed to update settings');
+
+            toast({
+                title: 'Thành công',
+                description: `Đã ${checked ? 'bật' : 'tắt'} tự động duyệt công việc`,
+            });
+        } catch (error) {
+            // Revert on error
+            setFamilySettings(prev => ({ ...prev, autoApproveTasks: !checked }));
+            toast({
+                title: 'Lỗi',
+                description: 'Không thể cập nhật cài đặt',
+                variant: 'destructive',
+            });
+        }
+    };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.id]: e.target.value });
@@ -104,6 +154,33 @@ export default function ProfilePage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Family Settings (Only for Parents) */}
+                {user.role === 'parent' && (
+                    <Card className="border-none shadow-md overflow-hidden bg-card/50 backdrop-blur-sm border-t-4 border-t-green-500">
+                        <CardHeader className="bg-gradient-to-br from-green-50/50 to-teal-50/50 dark:from-green-900/20 dark:to-teal-900/20">
+                            <CardTitle className="text-xl flex items-center gap-2">
+                                <Settings className="h-5 w-5 text-green-500" /> Cài đặt gia đình
+                            </CardTitle>
+                            <CardDescription>Các thiết lập áp dụng cho toàn bộ gia đình.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-6 space-y-4">
+                            <div className="flex items-center justify-between space-y-0 rounded-lg border p-4 shadow-sm bg-background/50">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base font-semibold">Tự động duyệt công việc</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Nếu bật, các công việc đã hoàn thành sẽ được tự động duyệt vào 12h trưa hàng ngày.
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={familySettings.autoApproveTasks}
+                                    onCheckedChange={handleAutoApproveChange}
+                                    disabled={isLoadingSettings}
+                                />
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
                 {/* Basic Info */}
                 <Card className="border-none shadow-md overflow-hidden bg-card/50 backdrop-blur-sm border-t-4 border-t-blue-500">
                     <CardHeader className="bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-900/20 dark:to-indigo-900/20">
