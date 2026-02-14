@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Gift, Coins, Package, ShoppingCart, Star, X, CheckCircle2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Gift, Coins, Package, ShoppingCart, Star, X, CheckCircle2, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -25,6 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/context/auth-context';
+import { getChildren } from '@/app/members/actions';
 
 interface Reward {
   _id: string;
@@ -37,24 +38,51 @@ interface Reward {
   createdAt: string;
 }
 
+interface Child {
+  _id: string;
+  name: string;
+  role: string;
+  points?: number;
+}
+
 export default function RewardsPage() {
   const { user, login } = useAuth();
   const isParent = user?.role === 'parent';
   const { toast } = useToast();
 
   const [rewards, setRewards] = useState<Reward[]>([]);
+  const [children, setChildren] = useState<Child[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentReward, setCurrentReward] = useState<Partial<Reward>>({});
   const [isEditing, setIsEditing] = useState(false);
   const [mounted, setMounted] = useState(false);
 
+  // New state for parent redemption
+  const [isRedeemDialogOpen, setIsRedeemDialogOpen] = useState(false);
+  const [selectedRewardToRedeem, setSelectedRewardToRedeem] = useState<Reward | null>(null);
+
   useEffect(() => {
     setMounted(true);
     if (user?.familyId) {
       fetchRewards();
+      if (isParent) {
+        fetchChildren();
+      }
     }
-  }, [user?.familyId]);
+  }, [user?.familyId, isParent]);
+
+  const fetchChildren = async () => {
+    if (!user?.familyId) return;
+    try {
+      const res = await getChildren(user.familyId);
+      if (res.success) {
+        setChildren(res.data.filter((m: any) => m.role === 'child'));
+      }
+    } catch (error) {
+      console.error('Failed to fetch children', error);
+    }
+  };
 
   const fetchRewards = async () => {
     if (!user?.familyId) return;
@@ -164,6 +192,11 @@ export default function RewardsPage() {
     setIsDialogOpen(true);
   };
 
+  const openRedeemDialog = (reward: Reward) => {
+    setSelectedRewardToRedeem(reward);
+    setIsRedeemDialogOpen(true);
+  };
+
   const handleRedeem = async (reward: Reward) => {
     if (user && user.points! < reward.points) {
       toast({
@@ -192,6 +225,36 @@ export default function RewardsPage() {
         title: 'Đổi quà thành công! 🎉',
         description: `Bạn đã đổi thành công: ${reward.title}. Chúc bạn tận hưởng phần quà của mình!`,
       });
+    } catch (error: any) {
+      toast({
+        title: 'Lỗi',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleRedeemForChild = async (childId: string) => {
+    if (!selectedRewardToRedeem) return;
+
+    try {
+      const res = await fetch('/api/rewards/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: childId, rewardId: selectedRewardToRedeem._id }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error);
+
+      toast({
+        title: 'Đổi quà thành công! 🎁',
+        description: `Đã đổi quà ${selectedRewardToRedeem.title} cho con thành công.`,
+      });
+      setIsRedeemDialogOpen(false);
+      fetchChildren(); // Refresh children points
+      fetchRewards(); // Refresh stock
     } catch (error: any) {
       toast({
         title: 'Lỗi',
@@ -367,11 +430,19 @@ export default function RewardsPage() {
                           {reward.stock === 0 ? 'Hết hàng' : 'Đổi quà ngay'}
                         </Button>
                       ) : (
-                        <>
-                          <div className="text-xs text-muted-foreground font-medium">
-                            {new Date(reward.createdAt).toLocaleDateString('vi-VN')}
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex-1 mr-2">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200 font-bold w-full"
+                              onClick={() => openRedeemDialog(reward)}
+                              disabled={reward.stock === 0}
+                            >
+                              <Gift className="h-4 w-4 mr-1" /> Tặng quà
+                            </Button>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex gap-1 shrink-0">
                             <Button variant="ghost" size="sm" className="hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400" onClick={() => openEditDialog(reward)}>
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -379,7 +450,7 @@ export default function RewardsPage() {
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
-                        </>
+                        </div>
                       )}
                     </CardFooter>
                   </Card>
@@ -449,6 +520,59 @@ export default function RewardsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Redeem for Child Dialog */}
+      <Dialog open={isRedeemDialogOpen} onOpenChange={setIsRedeemDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>Tặng quà cho con</DialogTitle>
+            <DialogDescription>
+              Chọn thành viên bạn muốn đổi quà &quot;{selectedRewardToRedeem?.title}&quot;.
+              <br />
+              (Số điểm sẽ được trừ trực tiếp từ tài khoản của người nhận)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {children.length === 0 ? (
+              <p className="text-center text-muted-foreground italic">Không tìm thấy thành viên (con cái) nào.</p>
+            ) : (
+              <div className="grid gap-3">
+                {children.map(child => (
+                  <div key={child._id} className="flex items-center justify-between p-3 rounded-lg border bg-slate-50 dark:bg-slate-900 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-rose-100 p-2 rounded-full text-rose-600">
+                        <User className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-bold">{child.name}</p>
+                        <p className="text-xs text-muted-foreground flex items-center">
+                          Hiện có: <span className="font-bold text-amber-600 ml-1">{child.points || 0}</span> <Coins className="h-3 w-3 ml-0.5 text-amber-600" />
+                        </p>
+                      </div>
+                    </div>
+                    {selectedRewardToRedeem && (child.points || 0) < selectedRewardToRedeem.points ? (
+                      <Button size="sm" disabled variant="outline" className="text-xs text-muted-foreground">
+                        Thiếu {selectedRewardToRedeem.points - (child.points || 0)} điểm
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="bg-rose-500 hover:bg-rose-600 font-bold"
+                        onClick={() => handleRedeemForChild(child._id)}
+                      >
+                        Tặng ngay
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRedeemDialogOpen(false)}>Hủy bỏ</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
