@@ -354,6 +354,10 @@ export default function TasksPage() {
                                 {task.repeatFrequency && task.repeatFrequency !== 'none' && (
                                     <Repeat className={`h-2.5 w-2.5 ${theme.icon} shrink-0`} />
                                 )}
+                                <div className="flex items-center gap-1 text-[9px] text-muted-foreground shrink-0 ml-1">
+                                    <Clock className="h-2.5 w-2.5" />
+                                    {new Date(task.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                                </div>
                             </div>
 
                             <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">

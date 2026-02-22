@@ -5,12 +5,13 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function PUT(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params;
     await dbConnect();
     try {
         const body = await req.json();
-        const schedule = await Schedule.findByIdAndUpdate(params.id, body, {
+        const schedule = await Schedule.findByIdAndUpdate(id, body, {
             new: true,
             runValidators: true,
         });
@@ -32,11 +33,12 @@ export async function PUT(
 
 export async function DELETE(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params;
     await dbConnect();
     try {
-        const schedule = await Schedule.findByIdAndDelete(params.id);
+        const schedule = await Schedule.findByIdAndDelete(id);
 
         if (!schedule) {
             return NextResponse.json({ error: 'Schedule not found' }, { status: 404 });

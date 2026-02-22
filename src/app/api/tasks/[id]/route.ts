@@ -4,14 +4,15 @@ import User from '@/models/User';
 import PointHistory from '@/models/PointHistory';
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await dbConnect();
     try {
         const body = await req.json();
         console.log('API PUT Task Body:', body);
 
         // Find existing task to check status change
-        const oldTask = await Task.findById(params.id);
+        const oldTask = await Task.findById(id);
         if (!oldTask) {
             return NextResponse.json({ error: 'Task not found' }, { status: 404 });
         }
@@ -35,7 +36,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             }
         }
 
-        const task = await Task.findByIdAndUpdate(params.id, body, {
+        const task = await Task.findByIdAndUpdate(id, body, {
             new: true,
             runValidators: true,
         });
@@ -80,10 +81,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await dbConnect();
     try {
-        const task = await Task.findById(params.id);
+        const task = await Task.findById(id);
         if (!task) {
             return NextResponse.json({ error: 'Task not found' }, { status: 404 });
         }
@@ -105,7 +107,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
             }
         }
 
-        await Task.findByIdAndDelete(params.id);
+        await Task.findByIdAndDelete(id);
         return NextResponse.json({ message: 'Task deleted successfully' }, { status: 200 });
     } catch (error) {
         return NextResponse.json({ error: 'Failed to delete task' }, { status: 500 });
