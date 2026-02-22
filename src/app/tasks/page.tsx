@@ -151,16 +151,24 @@ export default function TasksPage() {
 
             if (!res.ok) throw new Error('Operation failed');
 
+            const savedTask = await res.json();
+
             toast({
-                title: 'Success',
-                description: `Task ${isEditing ? 'updated' : 'created'} successfully`,
+                title: 'Thành công',
+                description: `Công việc đã được ${isEditing ? 'cập nhật' : 'tạo'}`,
             });
             setIsDialogOpen(false);
-            fetchTasks();
+
+            // Update local state without fetchTasks()
+            if (isEditing) {
+                setTasks(prev => prev.map(t => t._id === savedTask._id ? savedTask : t));
+            } else {
+                setTasks(prev => [savedTask, ...prev]);
+            }
         } catch (error) {
             toast({
-                title: 'Error',
-                description: 'Failed to save task',
+                title: 'Lỗi',
+                description: 'Không thể lưu công việc',
                 variant: 'destructive',
             });
         }
@@ -180,16 +188,19 @@ export default function TasksPage() {
             });
 
             if (!res.ok) throw new Error('Failed to claim task');
+            const updatedTask = await res.json();
 
             toast({
-                title: 'Thành công 🎉',
-                description: `Bạn đã nhận công việc: ${task.title}. Chăm chỉ nhé!`,
+                title: 'Thành công',
+                description: 'Bạn đã nhận công việc này',
             });
-            fetchTasks();
+
+            // Update local state
+            setTasks(prev => prev.map(t => t._id === updatedTask._id ? updatedTask : t));
         } catch (error) {
             toast({
                 title: 'Lỗi',
-                description: 'Không thể nhận công việc này',
+                description: 'Không thể nhận công việc',
                 variant: 'destructive',
             });
         }
@@ -248,6 +259,11 @@ export default function TasksPage() {
     }, [user?.id, toast, fetchTasks]);
 
     const handleUpdateStatus = async (task: Task, newStatus: string) => {
+        // Optimistic update
+        setTasks(prevTasks => prevTasks.map(t =>
+            t._id === task._id ? { ...t, status: newStatus as Task['status'] } : t
+        ));
+
         try {
             const res = await fetch(`/api/tasks/${task._id}`, {
                 method: 'PUT',
@@ -264,8 +280,9 @@ export default function TasksPage() {
                 title: 'Thành công',
                 description: 'Đã cập nhật trạng thái công việc',
             });
-            fetchTasks();
         } catch (error) {
+            // Revert on error
+            fetchTasks();
             toast({
                 title: 'Lỗi',
                 description: 'Không thể cập nhật trạng thái',
@@ -276,16 +293,22 @@ export default function TasksPage() {
 
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this task?')) return;
+
+        // Optimistic delete
+        const taskToDelete = tasks.find(t => t._id === id);
+        setTasks(prevTasks => prevTasks.filter(t => t._id !== id));
+
         try {
             const res = await fetch(`/api/tasks/${id}?userId=${user?.id}`, { method: 'DELETE' });
             if (!res.ok) {
                 const data = await res.json();
                 throw new Error(data.error || 'Delete failed');
             }
-            toast({ title: 'Success', description: 'Task deleted' });
-            fetchTasks();
+            toast({ title: 'Thành công', description: 'Đã xóa công việc' });
         } catch (error: any) {
-            toast({ title: 'Error', description: error.message || 'Failed to delete task', variant: 'destructive' });
+            // Revert on error
+            fetchTasks(); // Easier to refetch than to piece it back in correctly if order matters
+            toast({ title: 'Lỗi', description: error.message || 'Không thể xóa công việc', variant: 'destructive' });
         }
     };
 
@@ -348,8 +371,8 @@ export default function TasksPage() {
 
                         <div className="flex items-center justify-between mt-0.5">
                             <div className="flex items-center gap-1.5 overflow-hidden">
-                                <Badge variant="secondary" className={`text-xs px-2 py-1 h-6 border-none truncate font-black shadow-md ${task.assignedTo === 'unassigned' ? 'bg-amber-100 text-amber-700' : 'bg-white text-blue-800 border-2 border-blue-200'}`}>
-                                    {task.assignedTo === 'unassigned' ? 'Chờ nhận' : task.assignedTo}
+                                <Badge variant="secondary" className={`text-xs px-2 py-1 h-6 border-none truncate font-black shadow-md ${(task.assignedTo === 'unassigned' || !task.assignedTo) ? 'bg-amber-100 text-amber-700' : 'bg-white text-blue-800 border-2 border-blue-200'}`}>
+                                    {(task.assignedTo === 'unassigned' || !task.assignedTo) ? 'Chờ nhận' : task.assignedTo}
                                 </Badge>
                                 {task.repeatFrequency && task.repeatFrequency !== 'none' && (
                                     <Repeat className={`h-2.5 w-2.5 ${theme.icon} shrink-0`} />
@@ -418,8 +441,8 @@ export default function TasksPage() {
                 <CardContent className="p-6 flex-grow">
                     <div className="flex flex-col gap-2">
                         <span className="font-bold text-gray-500 dark:text-gray-400 text-sm uppercase tracking-wider">Người thực hiện:</span>
-                        <div className={`inline-flex items-center px-4 py-2 rounded-xl text-xl font-black shadow-lg border-2 ${task.assignedTo === 'unassigned' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-blue-50 text-blue-800 border-blue-200'} w-fit`}>
-                            {task.assignedTo === 'unassigned' ? 'ĐANG CHỜ CON NHẬN VIỆC' : task.assignedTo.toUpperCase()}
+                        <div className={`inline-flex items-center px-4 py-2 rounded-xl text-xl font-black shadow-lg border-2 ${(task.assignedTo === 'unassigned' || !task.assignedTo) ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-blue-50 text-blue-800 border-blue-200'} w-fit`}>
+                            {(task.assignedTo === 'unassigned' || !task.assignedTo) ? 'ĐANG CHỜ CON NHẬN VIỆC' : task.assignedTo.toUpperCase()}
                         </div>
                     </div>
                 </CardContent>
@@ -428,7 +451,7 @@ export default function TasksPage() {
                         <Clock className="h-3 w-3" />
                         {new Date(task.createdAt).toLocaleDateString('vi-VN')}
                     </div>
-                    {!isParent && task.assignedTo === 'unassigned' && (
+                    {!isParent && (task.assignedTo === 'unassigned' || !task.assignedTo) && (
                         <Button
                             size="sm"
                             className="bg-green-600 hover:bg-green-700 text-white font-bold"
@@ -694,8 +717,10 @@ export default function TasksPage() {
                                             body: JSON.stringify(payload),
                                         });
                                         if (res.ok) {
+                                            const newTask = await res.json();
                                             toast({ title: 'Đã tạo nhanh', description: `Nhiệm vụ "${q.title}" đã được tạo.` });
-                                            fetchTasks();
+                                            // Update local state immediately
+                                            setTasks(prev => [newTask, ...prev]);
                                         }
                                     } catch (e) {
                                         toast({ title: 'Lỗi', description: 'Không thể tạo nhanh nhiệm vụ', variant: 'destructive' });
