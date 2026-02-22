@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Plus, Pencil, Trash2, CheckCircle2, Circle, Clock, Coins, Hand, Play, Check, Sparkles, Droplets, Utensils, Shirt, Leaf, Repeat, Brush } from 'lucide-react';
+import { Plus, Pencil, Trash2, CheckCircle2, Circle, Clock, Coins, Hand, Play, Check, Sparkles, Droplets, Utensils, Shirt, Heart, Leaf, Repeat, Brush, LayoutGrid, Kanban as KanbanIcon, GripVertical, Bath } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -62,19 +63,10 @@ export default function TasksPage() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [currentTask, setCurrentTask] = useState<Partial<Task>>({});
     const [isEditing, setIsEditing] = useState(false);
+    const [globalTasksDisplayMode, setGlobalTasksDisplayMode] = useState<'kanban' | 'card'>('kanban');
     const [mounted, setMounted] = useState(false);
 
-    useEffect(() => {
-        setMounted(true);
-        if (user?.familyId) {
-            generateScheduledTasks().then(() => {
-                fetchTasks();
-                fetchMembers();
-            });
-        }
-    }, [user?.familyId]);
-
-    const generateScheduledTasks = async () => {
+    const generateScheduledTasks = useCallback(async () => {
         if (!user?.familyId) return;
         try {
             await fetch('/api/tasks/generate', {
@@ -85,9 +77,9 @@ export default function TasksPage() {
         } catch (error) {
             console.error('Failed to generate scheduled tasks:', error);
         }
-    };
+    }, [user?.familyId]);
 
-    const fetchTasks = async () => {
+    const fetchTasks = useCallback(async () => {
         if (!user?.familyId) return;
         setIsLoading(true);
         try {
@@ -110,17 +102,26 @@ export default function TasksPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [user?.familyId, toast]);
 
-    const fetchMembers = async () => {
+    const fetchMembers = useCallback(async () => {
         if (!user?.familyId) return;
         const result = await getChildren(user.familyId);
         if (result.success) {
-            // Filter only children if needed, or show all. Usually "assignedTo" is for children.
             const filterChildren = result.data.filter((m: Member) => m.role === 'child');
             setChildrenMembers(filterChildren);
         }
-    };
+    }, [user?.familyId]);
+
+    useEffect(() => {
+        setMounted(true);
+        if (user?.familyId) {
+            generateScheduledTasks().then(() => {
+                fetchTasks();
+                fetchMembers();
+            });
+        }
+    }, [user?.familyId, generateScheduledTasks, fetchTasks, fetchMembers]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -193,6 +194,58 @@ export default function TasksPage() {
             });
         }
     };
+
+    const onDragStart = useCallback((start: any) => {
+        // console.log('DRAG START EVENT:', start);
+    }, []);
+
+    const onDragUpdate = useCallback((update: any) => {
+        // console.log('DRAG UPDATE EVENT:', update);
+    }, []);
+
+    const onDragEnd = useCallback(async (result: DropResult) => {
+        const { destination, source, draggableId } = result;
+
+        if (!destination || (
+            destination.droppableId === source.droppableId &&
+            destination.index === source.index
+        )) {
+            return;
+        }
+
+        const newStatus = destination.droppableId as Task['status'];
+
+        // Optimistic update using functional state
+        setTasks(prevTasks => {
+            return prevTasks.map(t =>
+                t._id === draggableId ? { ...t, status: newStatus } : t
+            );
+        });
+
+        try {
+            const res = await fetch(`/api/tasks/${draggableId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: newStatus,
+                    userId: user?.id
+                }),
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || 'Failed to update status');
+            }
+        } catch (error: any) {
+            // Revert on error
+            fetchTasks();
+            toast({
+                title: 'Lỗi',
+                description: error.message || 'Không thể cập nhật trạng thái',
+                variant: 'destructive',
+            });
+        }
+    }, [user?.id, toast, fetchTasks]);
 
     const handleUpdateStatus = async (task: Task, newStatus: string) => {
         try {
@@ -268,111 +321,260 @@ export default function TasksPage() {
         }
     };
 
-    const renderTaskCard = (task: Task) => (
-        <Card key={task._id} className={`overflow-hidden border-none shadow-md hover:shadow-xl transition-all duration-300 group bg-card/50 backdrop-blur-sm border-t-4 ${task.status === 'approved' ? 'border-t-purple-400' : 'border-t-blue-400'}`}>
-            <CardHeader className={`${task.status === 'approved' ? 'bg-gradient-to-br from-purple-50/50 to-pink-50/50 dark:from-purple-900/20 dark:to-pink-900/20' : 'bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-900/20 dark:to-indigo-900/20'} p-6`}>
-                <div className="flex justify-between items-start mb-2">
-                    <Badge variant="outline" className={`px-3 py-1 bg-white/80 dark:bg-black/20 border-none font-bold ${statusColors[task.status as keyof typeof statusColors] || ''}`}>
-                        {getStatusLabel(task.status)}
-                    </Badge>
-                    <div className="flex items-center text-amber-600 font-extrabold bg-white/80 dark:bg-black/20 px-3 py-1 rounded-full text-sm shadow-sm">
-                        <Coins className="h-4 w-4 mr-1" />
-                        {task.points}
+    const renderTaskCard = (task: Task, isKanban = false) => {
+        const theme = {
+            pending: { shadow: 'shadow-amber-200/50', border: 'border-amber-400', sideBorder: 'border-l-amber-600', bg: 'bg-white dark:bg-slate-900', text: 'text-amber-900 dark:text-amber-100', icon: 'text-amber-600' },
+            in_progress: { shadow: 'shadow-blue-200/50', border: 'border-blue-400', sideBorder: 'border-l-blue-700', bg: 'bg-white dark:bg-slate-900', text: 'text-blue-900 dark:text-blue-100', icon: 'text-blue-600' },
+            completed: { shadow: 'shadow-indigo-200/50', border: 'border-indigo-400', sideBorder: 'border-l-indigo-700', bg: 'bg-white dark:bg-slate-900', text: 'text-indigo-900 dark:text-indigo-100', icon: 'text-indigo-600' },
+            approved: { shadow: 'shadow-emerald-200/50', border: 'border-emerald-400', sideBorder: 'border-l-emerald-700', bg: 'bg-white dark:bg-slate-900', text: 'text-emerald-900 dark:text-emerald-100', icon: 'text-emerald-600' }
+        }[task.status] || { shadow: 'shadow-slate-200/50', border: 'border-slate-300', sideBorder: 'border-l-slate-600', bg: 'bg-white dark:bg-slate-900', text: 'text-slate-900 dark:text-slate-100', icon: 'text-slate-600' };
+
+        if (isKanban) {
+            return (
+                <Card
+                    key={task._id}
+                    className={`overflow-hidden border shadow-md hover:shadow-xl transition-all duration-200 ${theme.bg} ${theme.border} border-l-8 ${theme.sideBorder} group`}
+                >
+                    <div className="p-2.5 flex flex-col gap-2">
+                        <div className="flex justify-between items-start gap-2">
+                            <h4 className="font-bold text-sm text-gray-800 dark:text-gray-100 line-clamp-2 uppercase tracking-tight flex-grow leading-tight">
+                                {task.title}
+                            </h4>
+                            <div className="flex items-center text-amber-600 font-bold bg-amber-50 dark:bg-amber-900/40 px-2 py-1 rounded-md text-xs shrink-0 h-fit shadow-sm border border-amber-100 dark:border-amber-800/50">
+                                <Coins className="h-3 w-3 mr-1" />
+                                {task.points}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-0.5">
+                            <div className="flex items-center gap-1.5 overflow-hidden">
+                                <Badge variant="secondary" className={`text-xs px-2 py-1 h-6 border-none truncate font-black shadow-md ${task.assignedTo === 'unassigned' ? 'bg-amber-100 text-amber-700' : 'bg-white text-blue-800 border-2 border-blue-200'}`}>
+                                    {task.assignedTo === 'unassigned' ? 'Chờ nhận' : task.assignedTo}
+                                </Badge>
+                                {task.repeatFrequency && task.repeatFrequency !== 'none' && (
+                                    <Repeat className={`h-2.5 w-2.5 ${theme.icon} shrink-0`} />
+                                )}
+                            </div>
+
+                            <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {(isParent || task.createdBy === user?.id) && (
+                                    <>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-5 w-5 p-0 text-blue-600 hover:bg-white/50"
+                                            onClick={(e) => { e.stopPropagation(); openEditDialog(task); }}
+                                        >
+                                            <Pencil className="h-2.5 w-2.5" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-5 w-5 p-0 text-red-600 hover:bg-white/50"
+                                            onClick={(e) => { e.stopPropagation(); handleDelete(task._id); }}
+                                        >
+                                            <Trash2 className="h-2.5 w-2.5" />
+                                        </Button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div className="flex items-center gap-2 mb-2">
-                    <CardTitle className={`text-xl font-bold text-gray-800 dark:text-gray-100 ${task.status === 'approved' ? 'group-hover:text-purple-600' : 'group-hover:text-blue-600'} transition-colors uppercase tracking-tight`}>{task.title}</CardTitle>
-                    {task.repeatFrequency && task.repeatFrequency !== 'none' && (
-                        <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0 border-none">
-                            <Repeat className="h-3 w-3 mr-0.5" />
-                            {task.repeatFrequency === 'daily' ? 'Hàng ngày' : 'Hàng tuần'}
-                        </Badge>
-                    )}
-                </div>
-                {task.description && (
-                    <CardDescription className="line-clamp-2 text-sm mt-2 text-gray-600 dark:text-gray-400 italic">"{task.description}"</CardDescription>
-                )}
-            </CardHeader>
-            <CardContent className="p-6">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span className="font-semibold text-gray-700 dark:text-gray-300">Giao cho:</span>
-                    <Badge variant="secondary" className={`border-none ${task.assignedTo === 'unassigned' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
-                        {task.assignedTo === 'unassigned' ? 'Đang chờ con nhận việc' : task.assignedTo}
-                    </Badge>
-                </div>
-            </CardContent>
-            <CardFooter className="bg-muted/30 p-4 flex justify-between items-center">
-                <div className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {new Date(task.createdAt).toLocaleDateString('vi-VN')}
-                </div>
-                {!isParent && task.assignedTo === 'unassigned' && (
-                    <Button
-                        size="sm"
-                        className="bg-green-600 hover:bg-green-700 text-white font-bold"
-                        onClick={() => handleClaimTask(task)}
-                    >
-                        <Hand className="mr-2 h-4 w-4" /> Nhận việc
-                    </Button>
-                )}
-                {!isParent && task.assignedToId === user?.id && task.status === 'pending' && (
-                    <Button
-                        size="sm"
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
-                        onClick={() => handleUpdateStatus(task, 'in_progress')}
-                    >
-                        <Play className="mr-2 h-4 w-4" /> Bắt đầu làm
-                    </Button>
-                )}
-                {!isParent && task.assignedToId === user?.id && task.status === 'in_progress' && (
-                    <Button
-                        size="sm"
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
-                        onClick={() => handleUpdateStatus(task, 'completed')}
-                    >
-                        <Check className="mr-2 h-4 w-4" /> Hoàn thành
-                    </Button>
-                )}
-                {!isParent && task.assignedToId === user?.id && task.status === 'completed' && (
-                    <Badge className="bg-green-100 text-green-700 border-none">Đang chờ duyệt</Badge>
-                )}
-                {!isParent && task.assignedToId === user?.id && task.status === 'approved' && (
-                    <Badge className="bg-purple-100 text-purple-700 border-none">Đã hoàn thành</Badge>
-                )}
-                {(isParent || task.createdBy === user?.id) && (
-                    <div className="flex gap-2">
-                        {task.status === 'completed' && (
-                            <Button
-                                size="sm"
-                                className="bg-green-600 hover:bg-green-700 text-white font-bold"
-                                onClick={() => handleUpdateStatus(task, 'approved')}
-                            >
-                                <CheckCircle2 className="mr-2 h-4 w-4" /> Duyệt
-                            </Button>
+                </Card>
+            );
+        }
+
+        return (
+            <Card key={task._id} className={`overflow-hidden border-none shadow-md hover:shadow-xl transition-all duration-300 group bg-card/50 backdrop-blur-sm border-t-4 ${task.status === 'approved' ? 'border-t-purple-400' : 'border-t-blue-400'}`}>
+                <CardHeader className={`${task.status === 'approved' ? 'bg-gradient-to-br from-purple-50/50 to-pink-50/50 dark:from-purple-900/20 dark:to-pink-900/20' : 'bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-900/20 dark:to-indigo-900/20'} p-6`}>
+                    <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2">
+                            <Badge variant="outline" className={`px-2 py-0.5 bg-white/80 dark:bg-black/20 border-none font-bold text-[10px] ${statusColors[task.status as keyof typeof statusColors] || ''}`}>
+                                {getStatusLabel(task.status)}
+                            </Badge>
+                        </div>
+                        <div className="flex items-center text-amber-600 font-black bg-white dark:bg-black/40 px-3 py-1.5 rounded-full text-base shadow-md border-2 border-amber-100">
+                            <Coins className="h-5 w-5 mr-1.5 text-amber-500" />
+                            {task.points}
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-1 mb-1">
+                        <CardTitle className={`font-bold text-gray-800 dark:text-gray-100 ${task.status === 'approved' ? 'group-hover:text-purple-600' : 'group-hover:text-blue-600'} transition-colors uppercase tracking-tight text-xl`}>{task.title}</CardTitle>
+                        {task.repeatFrequency && task.repeatFrequency !== 'none' && (
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[8px] px-1 py-0 border-none w-fit">
+                                <Repeat className="h-2 w-2 mr-0.5" />
+                                {task.repeatFrequency === 'daily' ? 'Hàng ngày' : task.repeatFrequency === 'weekly' ? 'Hàng tuần' : 'Một lần'}
+                            </Badge>
                         )}
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400"
-                            onClick={() => openEditDialog(task)}
-                            disabled={!isParent && task.status === 'approved'}
-                        >
-                            <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400"
-                            onClick={() => handleDelete(task._id)}
-                            disabled={!isParent && task.status === 'approved'}
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
                     </div>
-                )}
-            </CardFooter>
-        </Card>
-    );
+                    {task.description && (
+                        <CardDescription className="line-clamp-2 text-sm mt-2 text-gray-600 dark:text-gray-400 italic">"{task.description}"</CardDescription>
+                    )}
+                </CardHeader>
+                <CardContent className="p-6 flex-grow">
+                    <div className="flex flex-col gap-2">
+                        <span className="font-bold text-gray-500 dark:text-gray-400 text-sm uppercase tracking-wider">Người thực hiện:</span>
+                        <div className={`inline-flex items-center px-4 py-2 rounded-xl text-xl font-black shadow-lg border-2 ${task.assignedTo === 'unassigned' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-blue-50 text-blue-800 border-blue-200'} w-fit`}>
+                            {task.assignedTo === 'unassigned' ? 'ĐANG CHỜ CON NHẬN VIỆC' : task.assignedTo.toUpperCase()}
+                        </div>
+                    </div>
+                </CardContent>
+                <CardFooter className="bg-muted/30 p-4 flex justify-between items-center mt-auto">
+                    <div className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {new Date(task.createdAt).toLocaleDateString('vi-VN')}
+                    </div>
+                    {!isParent && task.assignedTo === 'unassigned' && (
+                        <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white font-bold"
+                            onClick={() => handleClaimTask(task)}
+                        >
+                            <Hand className="mr-2 h-4 w-4" /> Nhận việc
+                        </Button>
+                    )}
+                    {!isParent && task.assignedToId === user?.id && task.status === 'pending' && (
+                        <Button
+                            size="sm"
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                            onClick={() => handleUpdateStatus(task, 'in_progress')}
+                        >
+                            <Play className="mr-2 h-4 w-4" /> Bắt đầu
+                        </Button>
+                    )}
+                    {!isParent && task.assignedToId === user?.id && task.status === 'in_progress' && (
+                        <Button
+                            size="sm"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                            onClick={() => handleUpdateStatus(task, 'completed')}
+                        >
+                            <Check className="mr-2 h-4 w-4" /> Xong
+                        </Button>
+                    )}
+                    {!isParent && task.assignedToId === user?.id && task.status === 'completed' && (
+                        <Badge className="bg-green-100 text-green-700 border-none text-[10px] px-1.5 py-0">Đang chờ duyệt</Badge>
+                    )}
+                    {!isParent && task.assignedToId === user?.id && task.status === 'approved' && (
+                        <Badge className="bg-purple-100 text-purple-700 border-none text-[10px] px-1.5 py-0">Đã xong</Badge>
+                    )}
+                    {(isParent || task.createdBy === user?.id) && (
+                        <div className="flex gap-1">
+                            {task.status === 'completed' && isParent && (
+                                <Button
+                                    size="sm"
+                                    className="bg-green-600 hover:bg-green-700 text-white font-bold h-7 text-[10px] px-2"
+                                    onClick={() => handleUpdateStatus(task, 'approved')}
+                                >
+                                    <CheckCircle2 className="h-3 w-3" />
+                                </Button>
+                            )}
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 h-7 w-7 p-0 flex items-center justify-center"
+                                onClick={() => openEditDialog(task)}
+                                disabled={!isParent && task.status === 'approved'}
+                            >
+                                <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 h-7 w-7 p-0 flex items-center justify-center"
+                                onClick={() => handleDelete(task._id)}
+                                disabled={!isParent && task.status === 'approved'}
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                        </div>
+                    )}
+                </CardFooter>
+            </Card>
+        );
+    };
+
+    const renderKanbanView = () => {
+        const statuses: ('pending' | 'in_progress' | 'completed' | 'approved')[] = ['pending', 'in_progress', 'completed', 'approved'];
+
+        const columnThemes = {
+            pending: { bg: 'bg-amber-100/40 dark:bg-amber-900/10', border: 'border-amber-200 dark:border-amber-800/40', dot: 'bg-amber-600', text: 'text-amber-900 dark:text-amber-300', badge: 'bg-amber-600 text-white' },
+            in_progress: { bg: 'bg-blue-100/40 dark:bg-blue-900/10', border: 'border-blue-200 dark:border-blue-800/40', dot: 'bg-blue-600', text: 'text-blue-900 dark:text-blue-300', badge: 'bg-blue-600 text-white' },
+            completed: { bg: 'bg-indigo-100/40 dark:bg-indigo-900/10', border: 'border-indigo-200 dark:border-indigo-800/40', dot: 'bg-indigo-600', text: 'text-indigo-900 dark:text-indigo-300', badge: 'bg-indigo-600 text-white' },
+            approved: { bg: 'bg-emerald-100/40 dark:bg-emerald-900/10', border: 'border-emerald-200 dark:border-emerald-800/40', dot: 'bg-emerald-600', text: 'text-emerald-900 dark:text-emerald-300', badge: 'bg-emerald-600 text-white' }
+        };
+
+        return (
+            <DragDropContext
+                onDragStart={onDragStart}
+                onDragUpdate={onDragUpdate}
+                onDragEnd={onDragEnd}
+            >
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-x-auto pb-6 -mx-4 px-4 md:mx-0 md:px-0">
+                    {statuses.map(status => {
+                        const statusTasks = tasks.filter(t => t.status === status).slice(0, 20);
+                        const theme = columnThemes[status];
+                        return (
+                            <div key={status} className="flex flex-col gap-3 min-w-[280px]">
+                                <div className="flex items-center justify-between px-2">
+                                    <h3 className={`font-bold ${theme.text} flex items-center gap-2 text-sm uppercase tracking-wider`}>
+                                        <div className={`w-2.5 h-2.5 rounded-full ${theme.dot} shadow-sm`} />
+                                        {getStatusLabel(status)}
+                                        <Badge variant="secondary" className={`ml-1 ${theme.badge} border-none text-[10px] h-4.5 min-w-4.5 px-1.5 flex items-center justify-center font-bold`}>
+                                            {tasks.filter(t => t.status === status).length}
+                                        </Badge>
+                                    </h3>
+                                </div>
+                                <Droppable droppableId={status}>
+                                    {(provided, snapshot) => (
+                                        <div
+                                            {...provided.droppableProps}
+                                            ref={provided.innerRef}
+                                            className={`${theme.bg} rounded-2xl p-3 flex flex-col gap-3 min-h-[500px] border ${theme.border} transition-all duration-300 ${snapshot.isDraggingOver ? 'ring-2 ring-inset ring-current/20 scale-[1.01]' : ''}`}
+                                        >
+                                            {statusTasks.length === 0 ? (
+                                                <div className="flex flex-col items-center justify-center h-40 text-muted-foreground/30 italic text-xs border-2 border-dashed border-current/10 rounded-xl">
+                                                    Trống
+                                                </div>
+                                            ) : (
+                                                statusTasks.map((task, index) => (
+                                                    <Draggable key={task._id} draggableId={task._id} index={index}>
+                                                        {(provided, snapshot) => (
+                                                            <div
+                                                                ref={provided.innerRef}
+                                                                {...provided.draggableProps}
+                                                                {...provided.dragHandleProps}
+                                                                style={{
+                                                                    ...provided.draggableProps.style,
+                                                                    cursor: 'grab',
+                                                                }}
+                                                                className={snapshot.isDragging ? 'z-50' : ''}
+                                                            >
+                                                                <div style={{
+                                                                    opacity: snapshot.isDragging ? 0.9 : 1,
+                                                                    transform: snapshot.isDragging ? 'rotate(1deg) scale(1.02)' : 'none',
+                                                                    transition: 'transform 0.1s ease',
+                                                                }}>
+                                                                    {renderTaskCard(task, true)}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </Draggable>
+                                                ))
+                                            )}
+                                            {provided.placeholder}
+                                            {tasks.filter(t => t.status === status).length > 20 && (
+                                                <p className="text-[10px] text-center text-muted-foreground font-medium bg-white/50 dark:bg-black/20 py-1 rounded-lg">Còn {tasks.filter(t => t.status === status).length - 20} việc khác...</p>
+                                            )}
+                                        </div>
+                                    )}
+                                </Droppable>
+                            </div>
+                        );
+                    })}
+                </div>
+            </DragDropContext>
+        );
+    };
 
     if (!mounted) {
         return (
@@ -423,26 +625,48 @@ export default function TasksPage() {
                         {isParent ? 'Quản lý và giao việc cho con cái.' : 'Danh sách công việc của bạn.'}
                     </p>
                 </div>
-                <Button onClick={openCreateDialog} className="shadow-lg transition-all hover:scale-105 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 border-none shrink-0">
-                    <Plus className="h-4 w-4 md:mr-2" />
-                    <span className="hidden md:inline">Thêm công việc</span>
-                </Button>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
+                        <Button
+                            variant={globalTasksDisplayMode === 'kanban' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            className={`h-8 w-8 p-0 ${globalTasksDisplayMode === 'kanban' ? 'bg-white dark:bg-slate-950 shadow-sm' : ''}`}
+                            onClick={() => setGlobalTasksDisplayMode('kanban')}
+                        >
+                            <KanbanIcon className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant={globalTasksDisplayMode === 'card' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            className={`h-8 w-8 p-0 ${globalTasksDisplayMode === 'card' ? 'bg-white dark:bg-slate-950 shadow-sm' : ''}`}
+                            onClick={() => setGlobalTasksDisplayMode('card')}
+                        >
+                            <LayoutGrid className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    <Button onClick={openCreateDialog} className="shadow-lg transition-all hover:scale-105 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 border-none shrink-0">
+                        <Plus className="h-4 w-4 md:mr-2" />
+                        <span className="hidden md:inline">Thêm công việc</span>
+                    </Button>
+                </div>
             </div>
 
             {isParent && (
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800/30">
                     <h2 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-2">
                         <Sparkles className="h-4 w-4" />
-                        Tạo nhanh nhiệm vụ hàng ngày
+                        Tạo nhanh nhiệm vụ
                     </h2>
                     <div className="flex flex-wrap gap-2">
                         {[
-                            { title: 'Quét nhà', icon: <Brush className="h-4 w-4" />, points: 10, color: 'bg-amber-100 text-amber-700 hover:bg-amber-200' },
-                            { title: 'Lau nhà', icon: <Droplets className="h-4 w-4" />, points: 15, color: 'bg-blue-100 text-blue-700 hover:bg-blue-200' },
-                            { title: 'Rửa bát', icon: <Utensils className="h-4 w-4" />, points: 10, color: 'bg-green-100 text-green-700 hover:bg-green-200' },
-                            { title: 'Gấp quần áo', icon: <Shirt className="h-4 w-4" />, points: 10, color: 'bg-purple-100 text-purple-700 hover:bg-purple-200' },
-                            { title: 'Tưới cây', icon: <Leaf className="h-4 w-4" />, points: 5, color: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' },
-                            { title: 'Dọn đồ chơi', icon: <Plus className="h-4 w-4" />, points: 5, color: 'bg-pink-100 text-pink-700 hover:bg-pink-200' },
+                            { title: 'Quét nhà', icon: <Brush className="h-4 w-4" />, points: 6, color: 'bg-amber-100 text-amber-700 hover:bg-amber-200' },
+                            { title: 'Lau nhà', icon: <Droplets className="h-4 w-4" />, points: 6, color: 'bg-blue-100 text-blue-700 hover:bg-blue-200' },
+                            { title: 'Rửa bát', icon: <Utensils className="h-4 w-4" />, points: 5, color: 'bg-green-100 text-green-700 hover:bg-green-200' },
+                            { title: 'Giặt phơi quần áo', icon: <Shirt className="h-4 w-4" />, points: 6, color: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' },
+                            { title: 'Gấp quần áo', icon: <Shirt className="h-4 w-4" />, points: 6, color: 'bg-purple-100 text-purple-700 hover:bg-purple-200' },
+                            { title: 'Đấm lưng cho mẹ', icon: <Heart className="h-4 w-4" />, points: 10, color: 'bg-red-100 text-red-700 hover:bg-red-200' },
+                            { title: 'Tưới cây', icon: <Leaf className="h-4 w-4" />, points: 3, color: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' },
+                            { title: 'Cọ nhà vệ sinh', icon: <Bath className="h-4 w-4" />, points: 10, color: 'bg-pink-100 text-pink-700 hover:bg-pink-200' },
                         ].map((q) => (
                             <Button
                                 key={q.title}
@@ -458,7 +682,7 @@ export default function TasksPage() {
                                             familyId: user?.familyId,
                                             createdBy: user?.id,
                                             assignedTo: 'unassigned',
-                                            repeatFrequency: 'daily' // Auto-set to daily for quick tasks
+                                            repeatFrequency: 'one_time' // Auto-set to daily for quick tasks
                                         };
                                         const res = await fetch('/api/tasks', {
                                             method: 'POST',
@@ -500,6 +724,8 @@ export default function TasksPage() {
                         <Button onClick={openCreateDialog} variant="outline">Tạo công việc ngay</Button>
                     )}
                 </div>
+            ) : globalTasksDisplayMode === 'kanban' ? (
+                renderKanbanView()
             ) : (
                 <Tabs defaultValue="active" className="w-full">
                     <TabsList className="bg-slate-100/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-800 p-1 mb-8 w-fit">
