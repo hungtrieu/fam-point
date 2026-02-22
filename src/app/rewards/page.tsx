@@ -211,19 +211,19 @@ export default function RewardsPage() {
       const res = await fetch('/api/rewards/redeem', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user?.id, rewardId: reward._id }),
+        body: JSON.stringify({
+          userId: user?.id,
+          rewardId: reward._id,
+          requestedBy: user?.id
+        }),
       });
 
       const data = await res.json();
-
       if (!res.ok) throw new Error(data.error);
 
-      // Update local points in auth context
-      login({ ...user!, points: data.updatedPoints });
-
       toast({
-        title: 'Đổi quà thành công! 🎉',
-        description: `Bạn đã đổi thành công: ${reward.title}. Chúc bạn tận hưởng phần quà của mình!`,
+        title: 'Đã gửi yêu cầu! 🚀',
+        description: `Yêu cầu đổi quà "${reward.title}" đã được gửi tới bố mẹ. Hãy chờ bố mẹ phê duyệt nhé!`,
       });
     } catch (error: any) {
       toast({
@@ -241,16 +241,19 @@ export default function RewardsPage() {
       const res = await fetch('/api/rewards/redeem', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: childId, rewardId: selectedRewardToRedeem._id }),
+        body: JSON.stringify({
+          userId: childId,
+          rewardId: selectedRewardToRedeem._id,
+          requestedBy: user?.id
+        }),
       });
 
       const data = await res.json();
-
       if (!res.ok) throw new Error(data.error);
 
       toast({
         title: 'Đổi quà thành công! 🎁',
-        description: `Đã đổi quà ${selectedRewardToRedeem.title} cho con thành công.`,
+        description: `Đã đổi quà "${selectedRewardToRedeem.title}" cho con thành công.`,
       });
       setIsRedeemDialogOpen(false);
       fetchChildren(); // Refresh children points

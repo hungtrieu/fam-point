@@ -41,6 +41,8 @@ interface Reminder {
     isRead: boolean;
     reminderDate?: string;
     imageUrl?: string;
+    type?: 'standard' | 'redemption_request';
+    relatedId?: string;
     createdAt: string;
 }
 
@@ -87,6 +89,11 @@ export default function RemindersPage() {
     const [isUploading, setIsUploading] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const [mounted, setMounted] = useState(false);
+
+    // Redemption request states
+    const [isProcessingRedeem, setIsProcessingRedeem] = useState(false);
+    const [requestPoints, setRequestPoints] = useState<Record<string, number>>({});
+    const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
 
     useEffect(() => {
         setMounted(true);
@@ -243,6 +250,64 @@ export default function RemindersPage() {
             fetchReminders();
         } catch (error: any) {
             toast({ title: 'Lỗi', description: 'Không thể xóa lời nhắc', variant: 'destructive' });
+        }
+    };
+
+    const handleProcessRedemption = async (reminder: Reminder, status: 'approved' | 'rejected') => {
+        if (!reminder.relatedId) return;
+        setIsProcessingRedeem(true);
+        try {
+            // Use the state value if it was changed, otherwise use the value from content
+            const pointsToUse = requestPoints[reminder._id] || Number(reminder.content.match(/\((\d+) điểm\)/)?.[1] || 0);
+
+            const res = await fetch(`/api/rewards/redeem/${reminder.relatedId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status,
+                    points: pointsToUse,
+                    reason: status === 'rejected' ? rejectionReasons[reminder._id] : undefined,
+                    parentUserId: user?.id
+                }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to process');
+
+            toast({
+                title: 'Thành công',
+                description: status === 'approved' ? 'Đã duyệt yêu cầu đổi quà' : 'Đã từ chối yêu cầu đổi quà',
+            });
+
+            // Mark reminder as read as it's processed
+            await fetch(`/api/reminders/${reminder._id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isRead: true }),
+            });
+
+            fetchReminders();
+            // Trigger bell refresh
+            window.dispatchEvent(new Event('reminderMarkedRead'));
+        } catch (error: any) {
+            toast({
+                title: 'Lỗi',
+                description: error.message,
+                variant: 'destructive',
+            });
+        } finally {
+            setIsProcessingRedeem(false);
+            // Clear specific states
+            setRequestPoints(prev => {
+                const updated = { ...prev };
+                delete updated[reminder._id];
+                return updated;
+            });
+            setRejectionReasons(prev => {
+                const updated = { ...prev };
+                delete updated[reminder._id];
+                return updated;
+            });
         }
     };
 
@@ -419,6 +484,54 @@ export default function RemindersPage() {
                     ))}
                 </div>
             </CardContent>
+            {reminder.type === 'redemption_request' && isParent && !reminder.isRead && (
+                <div className="px-6 pb-4 bg-orange-50/50 dark:bg-orange-900/10 border-t border-orange-100 dark:border-orange-800 pt-4 mt-2">
+                    <p className="text-sm font-bold text-orange-700 dark:text-orange-300 mb-3 flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4" /> Phê duyệt đổi quà
+                    </p>
+                    <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-2">
+                            <Label htmlFor={`points-${reminder._id}`} className="shrink-0 text-xs">Điểm trừ:</Label>
+                            <Input
+                                id={`points-${reminder._id}`}
+                                type="number"
+                                className="h-8 text-sm"
+                                defaultValue={reminder.content.match(/\((\d+) điểm\)/)?.[1] || 0}
+                                onChange={(e) => setRequestPoints(prev => ({ ...prev, [reminder._id]: Number(e.target.value) }))}
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Label htmlFor={`reason-${reminder._id}`} className="shrink-0 text-xs">Lý do (nếu từ chối):</Label>
+                            <Input
+                                id={`reason-${reminder._id}`}
+                                className="h-8 text-sm"
+                                placeholder="VD: Con cần tiết kiệm thêm..."
+                                value={rejectionReasons[reminder._id] || ''}
+                                onChange={(e) => setRejectionReasons(prev => ({ ...prev, [reminder._id]: e.target.value }))}
+                            />
+                        </div>
+                        <div className="flex gap-2">
+                            <Button
+                                size="sm"
+                                className="flex-1 bg-green-600 hover:bg-green-700"
+                                onClick={() => handleProcessRedemption(reminder, 'approved')}
+                                disabled={isProcessingRedeem}
+                            >
+                                Duyệt
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
+                                onClick={() => handleProcessRedemption(reminder, 'rejected')}
+                                disabled={isProcessingRedeem}
+                            >
+                                Từ chối
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {((reminder.createdBy as any)._id === user?.id || isParent) && (
                 <CardFooter className="bg-muted/30 p-4 pt-2 flex justify-end gap-2">
                     <Button

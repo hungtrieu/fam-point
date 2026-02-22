@@ -32,6 +32,14 @@ const ReminderSchema = new mongoose.Schema({
     imageUrl: {
         type: String,
     },
+    type: {
+        type: String,
+        enum: ['standard', 'redemption_request'],
+        default: 'standard',
+    },
+    relatedId: {
+        type: String,
+    },
     createdAt: {
         type: Date,
         default: Date.now,
